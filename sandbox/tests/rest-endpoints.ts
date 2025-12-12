@@ -56,6 +56,50 @@ async function testEndpoint(
     }
 }
 
+async function testEndpointWithOutputValidation(
+    baseUrl: string,
+    method: string,
+    endpoint: string,
+    body: unknown,
+    expectedStatus: number,
+    expectedOutputContent: string,
+    testName: string,
+): Promise<void> {
+    try {
+        const url = `${baseUrl}${endpoint}`;
+        const response = await fetch(url, {
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: body ? JSON.stringify(body) : undefined,
+        });
+
+        const data = await response.json() as { stdout?: string; stderr?: string };
+
+        if (response.status !== expectedStatus) {
+            const errorMsg = `Expected status ${expectedStatus}, got ${response.status}`;
+            console.log(`${colors.red}✗${colors.reset} ${testName}: ${errorMsg}`);
+            results.push({ name: testName, passed: false, error: errorMsg });
+            return;
+        }
+
+        const output = data.stdout || '';
+        if (output.includes(expectedOutputContent)) {
+            console.log(`${colors.green}✓${colors.reset} ${testName}`);
+            results.push({ name: testName, passed: true });
+        } else {
+            const errorMsg = `Expected output to contain "${expectedOutputContent}", got: "${output}"`;
+            console.log(`${colors.red}✗${colors.reset} ${testName}: ${errorMsg}`);
+            results.push({ name: testName, passed: false, error: errorMsg });
+        }
+    } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.log(`${colors.red}✗${colors.reset} ${testName}: ${errorMsg}`);
+        results.push({ name: testName, passed: false, error: errorMsg });
+    }
+}
+
 async function main(): Promise<void> {
     const baseUrl = process.argv[2];
 
@@ -173,53 +217,58 @@ async function main(): Promise<void> {
     );
 
     // Test 14: Execute code - JavaScript success
-    await testEndpoint(
+    await testEndpointWithOutputValidation(
         baseUrl,
         'POST',
         '/execute-code',
         { code: 'console.log("Hello from JS")', language: 'js' },
         200,
-        'Execute code - JavaScript success',
+        'Hello from JS',
+        'Execute code - JavaScript success (verify output)',
     );
 
-    // Test 15: Execute code - JavaScript with newlines
-    await testEndpoint(
+    // Test 15: Execute code - JavaScript with newlines and number output
+    await testEndpointWithOutputValidation(
         baseUrl,
         'POST',
         '/execute-code',
         { code: 'const x = 42;\nconsole.log(x);', language: 'js' },
         200,
-        'Execute code - JavaScript with newlines',
+        '42',
+        'Execute code - JavaScript with newlines (verify number output)',
     );
 
-    // Test 16: Execute code - TypeScript success
-    await testEndpoint(
+    // Test 16: Execute code - TypeScript success with type annotation
+    await testEndpointWithOutputValidation(
         baseUrl,
         'POST',
         '/execute-code',
         { code: 'const x: number = 42;\nconsole.log(x);', language: 'ts' },
         200,
-        'Execute code - TypeScript success',
+        '42',
+        'Execute code - TypeScript success (verify output)',
     );
 
     // Test 17: Execute code - Python success
-    await testEndpoint(
+    await testEndpointWithOutputValidation(
         baseUrl,
         'POST',
         '/execute-code',
         { code: 'print("Hello from Python")', language: 'py' },
         200,
-        'Execute code - Python success',
+        'Hello from Python',
+        'Execute code - Python success (verify output)',
     );
 
-    // Test 18: Execute code - Python with newlines
-    await testEndpoint(
+    // Test 18: Execute code - Python with newlines and number output
+    await testEndpointWithOutputValidation(
         baseUrl,
         'POST',
         '/execute-code',
         { code: 'x = 42\nprint(x)', language: 'py' },
         200,
-        'Execute code - Python with newlines',
+        '42',
+        'Execute code - Python with newlines (verify number output)',
     );
 
     // Test 19: Execute code - invalid language
