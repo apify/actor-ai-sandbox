@@ -5,7 +5,7 @@
     "description": "Isolated sandbox Actor that executes code and operations in a containerized environment for AI coding agents",
     "version": "0.0",
     "buildTag": "latest",
-    "usesStandbyMode": true,
+    "usesStandbyMode": false,
     "meta": {
         "templateId": "ts-standby",
         "generatedBy": "claude-haiku-4.5"

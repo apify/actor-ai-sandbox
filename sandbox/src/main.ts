@@ -1,38 +1,13 @@
-import { exec } from 'node:child_process';
-import { promises as fs } from 'node:fs';
-import path from 'node:path';
-import { promisify } from 'node:util';
-
-import { Actor } from 'apify';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { Actor , log } from 'apify';
 import type { Request, Response } from 'express';
 import express from 'express';
 
-const execAsync = promisify(exec);
+import { createMcpServer } from './mcp.js';
+import { listFiles, readFile, runCommand, writeFile } from './operations.js';
 
 // The init() call configures the Actor for its environment. It's recommended to start every Actor with an init()
 await Actor.init();
-
-// After Actor.init(), remove all APIFY_* environment variables to prevent access to sensitive data
-// This ensures the sandbox cannot access Apify credentials or internal configuration
-const apifyEnvVars: string[] = [];
-Object.keys(process.env).forEach((key) => {
-    if (key.startsWith('APIFY_')) {
-        apifyEnvVars.push(key);
-        delete process.env[key];
-    }
-});
-console.log(`Removed ${apifyEnvVars.length} APIFY_* environment variables for security`);
-
-// Create a sanitized environment object for child processes
-const getSanitizedEnv = (): NodeJS.ProcessEnv => {
-    const env: NodeJS.ProcessEnv = {};
-    Object.keys(process.env).forEach((key) => {
-        if (!key.startsWith('APIFY_')) {
-            env[key] = process.env[key];
-        }
-    });
-    return env;
-};
 
 // Create Express app
 const app = express();
@@ -45,10 +20,34 @@ app.get('/health', (_req: Request, res: Response) => {
     res.json({ status: 'healthy' });
 });
 
-// Apify standby readiness probe
-app.get('/readiness', (_req: Request, res: Response) => {
-    res.writeHead(200);
-    res.end('ok');
+// MCP endpoint using proper StreamableHTTPServerTransport
+app.post('/mcp', async (req: Request, res: Response) => {
+    log.info('MCP request received', { body: req.body });
+    const server = createMcpServer();
+    try {
+        const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
+            sessionIdGenerator: undefined,
+        });
+        await server.connect(transport);
+        await transport.handleRequest(req, res, req.body);
+        res.on('close', () => {
+            log.info('MCP request closed');
+            void transport.close();
+            void server.close();
+        });
+    } catch (error) {
+        log.error('MCP request error', { error });
+        if (!res.headersSent) {
+            res.status(500).json({
+                jsonrpc: '2.0',
+                error: {
+                    code: -32603,
+                    message: 'Internal server error',
+                },
+                id: null,
+            });
+        }
+    }
 });
 
 // Execute shell command
@@ -56,38 +55,34 @@ app.post('/exec', async (req: Request, res: Response) => {
     try {
         const { command, cwd, timeout } = req.body;
 
+        log.info('REST /exec request received', { command, cwd, timeout });
+
         if (!command) {
+            log.debug('REST /exec: command is required');
             res.status(400).json({
                 error: 'Command is required',
             });
             return;
         }
 
-        const execOptions: { cwd?: string; timeout?: number; env?: NodeJS.ProcessEnv } = {
-            env: getSanitizedEnv(), // Use sanitized environment without APIFY_* vars
-        };
-        if (cwd) {
-            execOptions.cwd = cwd;
-        }
-        if (timeout) {
-            execOptions.timeout = timeout;
+        const result = await runCommand(command, cwd, timeout);
+
+        if (result.exitCode !== 0) {
+            log.debug('REST /exec completed with error', { command, exitCode: result.exitCode });
+            res.status(500).json(result);
+            return;
         }
 
-        const { stdout, stderr } = await execAsync(command, execOptions);
-
-        res.json({
-            stdout,
-            stderr,
-            exitCode: 0,
-        });
+        log.info('REST /exec completed successfully', { command });
+        res.json(result);
     } catch (error) {
-        console.error('Error executing command:', error);
-        const err = error as { message: string; stdout?: string; stderr?: string; code?: number };
+        log.error('REST /exec error', { error });
+        const err = error as Error;
         res.status(500).json({
             error: err.message,
-            stdout: err.stdout || '',
-            stderr: err.stderr || '',
-            exitCode: err.code || 1,
+            stdout: '',
+            stderr: '',
+            exitCode: 1,
         });
     }
 });
@@ -97,7 +92,10 @@ app.post('/write-file', async (req: Request, res: Response) => {
     try {
         const { path: filePath, content, mode } = req.body;
 
+        log.info('REST /write-file request received', { path: filePath, contentLength: content?.length, mode });
+
         if (!filePath) {
+            log.warning('REST /write-file: file path is required');
             res.status(400).json({
                 error: 'File path is required',
             });
@@ -105,30 +103,25 @@ app.post('/write-file', async (req: Request, res: Response) => {
         }
 
         if (content === undefined) {
+            log.warning('REST /write-file: content is required');
             res.status(400).json({
                 error: 'Content is required',
             });
             return;
         }
 
-        // Ensure directory exists
-        const dir = path.dirname(filePath);
-        await fs.mkdir(dir, { recursive: true });
+        const result = await writeFile(filePath, content, mode);
 
-        // Write the file
-        await fs.writeFile(filePath, content, 'utf8');
-
-        // Set file mode if specified
-        if (mode) {
-            await fs.chmod(filePath, mode);
+        if (!result.success) {
+            log.warning('REST /write-file failed', { path: filePath, error: result.error });
+            res.status(500).json(result);
+            return;
         }
 
-        res.json({
-            success: true,
-            path: filePath,
-        });
+        log.info('REST /write-file completed successfully', { path: filePath });
+        res.json(result);
     } catch (error) {
-        console.error('Error writing file:', error);
+        log.error('REST /write-file error', { error });
         const err = error as Error;
         res.status(500).json({
             error: err.message,
@@ -141,21 +134,28 @@ app.post('/read-file', async (req: Request, res: Response) => {
     try {
         const { path: filePath } = req.body;
 
+        log.info('REST /read-file request received', { path: filePath });
+
         if (!filePath) {
+            log.warning('REST /read-file: file path is required');
             res.status(400).json({
                 error: 'File path is required',
             });
             return;
         }
 
-        const content = await fs.readFile(filePath, 'utf8');
+        const result = await readFile(filePath);
 
-        res.json({
-            content,
-            path: filePath,
-        });
+        if (result.error) {
+            log.warning('REST /read-file failed', { path: filePath, error: result.error });
+            res.status(404).json(result);
+            return;
+        }
+
+        log.info('REST /read-file completed successfully', { path: filePath, contentLength: result.content?.length });
+        res.json(result);
     } catch (error) {
-        console.error('Error reading file:', error);
+        log.error('REST /read-file error', { error });
         const err = error as Error;
         res.status(404).json({
             error: err.message,
@@ -168,22 +168,20 @@ app.post('/list-files', async (req: Request, res: Response) => {
     try {
         const { path: dirPath } = req.body;
 
-        const targetPath = dirPath || process.cwd();
+        log.info('REST /list-files request received', { path: dirPath });
 
-        const entries = await fs.readdir(targetPath, { withFileTypes: true });
+        const result = await listFiles(dirPath);
 
-        const files = entries.map((entry) => ({
-            name: entry.name,
-            type: entry.isDirectory() ? 'directory' : 'file',
-            path: path.join(targetPath, entry.name),
-        }));
+        if (result.error) {
+            log.warning('REST /list-files failed', { path: dirPath, error: result.error });
+            res.status(500).json(result);
+            return;
+        }
 
-        res.json({
-            path: targetPath,
-            files,
-        });
+        log.info('REST /list-files completed successfully', { path: result.path, fileCount: result.files.length });
+        res.json(result);
     } catch (error) {
-        console.error('Error listing files:', error);
+        log.error('REST /list-files error', { error });
         const err = error as Error;
         res.status(500).json({
             error: err.message,
@@ -199,6 +197,38 @@ const serverUrl = process.env.ACTOR_WEB_SERVER_URL || `http://localhost:${port}`
 
 // Start server
 app.listen(port, () => {
-    console.log(`Sandbox Actor listening on port ${port}`);
-    console.log(`Server URL: ${serverUrl}`);
+    log.info(`Sandbox Actor listening on port ${port}`);
+    log.info(`Server URL: ${serverUrl}`);
+    
+    // Print startup information
+    console.log('\n=====================================');
+    console.log('🚀 Sandbox Actor Started');
+    console.log('=====================================\n');
+    
+    // MCP Server URL
+    console.log('📡 MCP Server Endpoint:');
+    console.log(`        ${serverUrl}/mcp\n`);
+    
+    // REST API Endpoints
+    console.log('🔧 Available REST Endpoints:');
+    console.log(`   POST ${serverUrl}/exec`);
+    console.log(`       Execute shell commands`);
+    console.log(`       Body: { command: string, cwd?: string, timeout?: number }\n`);
+    
+    console.log(`   POST ${serverUrl}/read-file`);
+    console.log(`       Read file contents`);
+    console.log(`       Body: { path: string }\n`);
+    
+    console.log(`   POST ${serverUrl}/write-file`);
+    console.log(`       Write file contents`);
+    console.log(`       Body: { path: string, content: string, mode?: number }\n`);
+    
+    console.log(`   POST ${serverUrl}/list-files`);
+    console.log(`       List directory contents`);
+    console.log(`       Body: { path?: string }\n`);
+    
+    console.log(`   GET ${serverUrl}/health`);
+    console.log(`       Health check\n`);
+    
+    console.log('=====================================\n');
 });

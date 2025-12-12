@@ -21,6 +21,20 @@ For complete information [see this article](https://docs.apify.com/platform/acto
 apify run
 ```
 
+## Testing REST Endpoints
+
+To test all REST endpoints end-to-end, use the provided test script:
+
+```bash
+# Using tsx (preferred)
+npx tsx tests/rest-endpoints.ts http://localhost:3000
+
+# Or with a remote Actor URL
+npx tsx tests/rest-endpoints.ts https://your-actor-url.runs.apify.net/
+```
+
+The test script validates all REST endpoints including success cases, error handling, and input validation.
+
 ## Deploy to Apify
 
 ### Connect Git repository to Apify
