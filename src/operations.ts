@@ -7,10 +7,25 @@ import { promisify } from 'node:util';
 
 import { log } from 'apify';
 
-import { SANDBOX_DIR, PYTHON_CODE_DIR, JS_TS_CODE_DIR } from './consts.js';
+import { JS_TS_CODE_DIR, PYTHON_CODE_DIR, SANDBOX_DIR } from './consts.js';
 import { getExecutionEnvironment } from './environment.js';
 
 const execAsync = promisify(exec);
+
+/**
+ * Resolve directory path relative to SANDBOX_DIR
+ * @param dirPath - The directory path to resolve (optional)
+ * @returns Resolved absolute path
+ */
+const resolveDirectoryPath = (dirPath?: string): string => {
+    if (!dirPath) {
+        return SANDBOX_DIR;
+    }
+    if (path.isAbsolute(dirPath)) {
+        return dirPath;
+    }
+    return path.join(SANDBOX_DIR, dirPath);
+};
 
 /**
  * Execute a shell command
@@ -148,11 +163,7 @@ export const listFiles = async (
     log.debug('listFiles called', { path: dirPath });
     try {
         // Use /sandbox as default, or resolve relative paths relative to /sandbox
-        const targetPath = !dirPath
-            ? SANDBOX_DIR
-            : path.isAbsolute(dirPath)
-              ? dirPath
-              : path.join(SANDBOX_DIR, dirPath);
+        const targetPath = resolveDirectoryPath(dirPath);
 
         const entries = await fs.readdir(targetPath, { withFileTypes: true });
 
@@ -169,11 +180,7 @@ export const listFiles = async (
         };
     } catch (error) {
         const err = error as Error;
-        const targetPath = !dirPath
-            ? SANDBOX_DIR
-            : path.isAbsolute(dirPath)
-              ? dirPath
-              : path.join(SANDBOX_DIR, dirPath);
+        const targetPath = resolveDirectoryPath(dirPath);
         log.debug('listFiles failed', { path: targetPath, error: err.message });
         return {
             path: targetPath,

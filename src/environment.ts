@@ -1,20 +1,12 @@
 // Environment setup for code execution (Node.js and Python)
+import { exec } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { exec } from 'node:child_process';
 
 import { log } from 'apify';
 
-import {
-    SANDBOX_DIR,
-    PYTHON_CODE_DIR,
-    JS_TS_CODE_DIR,
-    NODE_MODULES_DIR,
-    PYTHON_VENV_DIR,
-    PYTHON_BIN_DIR,
-    INIT_SCRIPT_TIMEOUT,
-} from './consts.js';
+import { INIT_SCRIPT_TIMEOUT, JS_TS_CODE_DIR, PYTHON_CODE_DIR, SANDBOX_DIR } from './consts.js';
 
 const execAsync = promisify(exec);
 
@@ -302,6 +294,37 @@ export const setupExecutionEnvironment = async (input: {
 };
 
 /**
+ * Get environment variables for code execution
+ * Returns environment with paths to Python venv and Node modules
+ */
+export const getExecutionEnvironment = (): NodeJS.ProcessEnv => {
+    const env: NodeJS.ProcessEnv = {};
+
+    // Copy non-APIFY variables
+    Object.keys(process.env).forEach((key) => {
+        if (!key.startsWith('APIFY_')) {
+            env[key] = process.env[key];
+        }
+    });
+
+    // Add Python venv to PATH
+    const currentPath = env.PATH || '';
+    env.PATH = `${EXECUTION_DIRS.PYTHON_BIN}:${currentPath}`;
+
+    // Add Node modules to PATH
+    env.PATH = `${path.join(EXECUTION_DIRS.NODE_MODULES, '.bin')}:${env.PATH}`;
+
+    // Set Node.js to find modules in js-ts/node_modules
+    env.NODE_PATH = EXECUTION_DIRS.NODE_MODULES;
+
+    // Set Python to use the venv
+    env.VIRTUAL_ENV = EXECUTION_DIRS.PYTHON_VENV;
+    env.PYTHONHOME = '';
+
+    return env;
+};
+
+/**
  * Execute initialization bash script
  * Runs custom bash script in /sandbox directory to setup environment
  */
@@ -396,35 +419,4 @@ export const executeInitScript = async (
             }
         }
     }
-};
-
-/**
- * Get environment variables for code execution
- * Returns environment with paths to Python venv and Node modules
- */
-export const getExecutionEnvironment = (): NodeJS.ProcessEnv => {
-    const env: NodeJS.ProcessEnv = {};
-
-    // Copy non-APIFY variables
-    Object.keys(process.env).forEach((key) => {
-        if (!key.startsWith('APIFY_')) {
-            env[key] = process.env[key];
-        }
-    });
-
-    // Add Python venv to PATH
-    const currentPath = env.PATH || '';
-    env.PATH = `${EXECUTION_DIRS.PYTHON_BIN}:${currentPath}`;
-
-    // Add Node modules to PATH
-    env.PATH = `${path.join(EXECUTION_DIRS.NODE_MODULES, '.bin')}:${env.PATH}`;
-
-    // Set Node.js to find modules in js-ts/node_modules
-    env.NODE_PATH = EXECUTION_DIRS.NODE_MODULES;
-
-    // Set Python to use the venv
-    env.VIRTUAL_ENV = EXECUTION_DIRS.PYTHON_VENV;
-    env.PYTHONHOME = '';
-
-    return env;
 };

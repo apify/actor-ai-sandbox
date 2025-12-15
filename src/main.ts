@@ -3,10 +3,10 @@ import { Actor, log } from 'apify';
 import type { Request, Response } from 'express';
 import express from 'express';
 
-import type { ActorInput } from './types.js';
+import { executeInitScript,setupExecutionEnvironment } from './environment.js';
 import { createMcpServer } from './mcp.js';
 import { executeCode, listFiles, readFile, runCommand, writeFile } from './operations.js';
-import { setupExecutionEnvironment, executeInitScript } from './environment.js';
+import type { ActorInput } from './types.js';
 
 // The init() call configures the Actor for its environment. It's recommended to start every Actor with an init()
 await Actor.init();
