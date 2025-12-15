@@ -6,7 +6,15 @@ import { exec } from 'node:child_process';
 
 import { log } from 'apify';
 
-import { SANDBOX_DIR, PYTHON_CODE_DIR, JS_TS_CODE_DIR, INIT_SCRIPT_TIMEOUT } from './consts.js';
+import {
+    SANDBOX_DIR,
+    PYTHON_CODE_DIR,
+    JS_TS_CODE_DIR,
+    NODE_MODULES_DIR,
+    PYTHON_VENV_DIR,
+    PYTHON_BIN_DIR,
+    INIT_SCRIPT_TIMEOUT,
+} from './consts.js';
 
 const execAsync = promisify(exec);
 
@@ -14,9 +22,9 @@ const execAsync = promisify(exec);
  * Directories for code execution environments
  */
 export const EXECUTION_DIRS = {
-    NODE_MODULES: path.join(SANDBOX_DIR, 'node_modules'),
-    PYTHON_VENV: path.join(SANDBOX_DIR, 'venv'),
-    PYTHON_BIN: path.join(SANDBOX_DIR, 'venv', 'bin'),
+    NODE_MODULES: path.join(JS_TS_CODE_DIR, 'node_modules'),
+    PYTHON_VENV: path.join(PYTHON_CODE_DIR, 'venv'),
+    PYTHON_BIN: path.join(PYTHON_CODE_DIR, 'venv', 'bin'),
 } as const;
 
 /**
@@ -44,7 +52,7 @@ export const initializeCodeDirectories = async (): Promise<void> => {
 
 /**
  * Initialize Node.js execution environment
- * Creates code directories first, then node_modules directory
+ * Creates code directories first, then node_modules directory inside js-ts
  */
 export const initializeNodeEnvironment = async (): Promise<void> => {
     log.debug('Initializing Node.js environment');
@@ -52,9 +60,44 @@ export const initializeNodeEnvironment = async (): Promise<void> => {
         // Initialize code directories first
         await initializeCodeDirectories();
 
-        // Create node_modules directory
+        // Create node_modules directory inside js-ts
         await fs.mkdir(EXECUTION_DIRS.NODE_MODULES, { recursive: true, mode: 0o755 });
         log.debug('Node modules directory created', { path: EXECUTION_DIRS.NODE_MODULES });
+
+        // Create package.json in js-ts directory if it doesn't exist
+        const packageJsonPath = path.join(JS_TS_CODE_DIR, 'package.json');
+        try {
+            await fs.stat(packageJsonPath);
+            log.debug('package.json already exists', { path: packageJsonPath });
+        } catch {
+            // Create minimal package.json
+            const packageJson = {
+                name: 'apify-sandbox-js-ts',
+                version: '1.0.0',
+                description: 'Sandbox for JS/TS code execution',
+                type: 'module',
+            };
+            await fs.writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2));
+            log.debug('Created package.json', { path: packageJsonPath });
+        }
+
+        // Create package-lock.json if it doesn't exist
+        const packageLockPath = path.join(JS_TS_CODE_DIR, 'package-lock.json');
+        try {
+            await fs.stat(packageLockPath);
+            log.debug('package-lock.json already exists', { path: packageLockPath });
+        } catch {
+            // Create minimal package-lock.json
+            const packageLock = {
+                name: 'apify-sandbox-js-ts',
+                version: '1.0.0',
+                lockfileVersion: 3,
+                requires: true,
+                packages: {},
+            };
+            await fs.writeFile(packageLockPath, JSON.stringify(packageLock, null, 2));
+            log.debug('Created package-lock.json', { path: packageLockPath });
+        }
 
         log.info('Node.js environment initialized successfully');
     } catch (error) {
@@ -136,13 +179,13 @@ export const installNodeLibraries = async (
     for (const library of libraries) {
         try {
             log.debug('Installing Node.js library', { library });
-            // Set NODE_PATH to ensure packages are installed in /sandbox/node_modules
-            await execAsync(`NODE_PATH=/sandbox/node_modules npm install --save ${library}`, {
-                cwd: SANDBOX_DIR,
+            // Install packages in /sandbox/js-ts/node_modules
+            await execAsync(`npm install --save ${library}`, {
+                cwd: JS_TS_CODE_DIR,
                 timeout: 120000, // 2 minutes per library
                 env: {
                     ...process.env,
-                    NODE_PATH: '/sandbox/node_modules',
+                    NODE_PATH: EXECUTION_DIRS.NODE_MODULES,
                 },
             });
 
@@ -361,10 +404,10 @@ export const getExecutionEnvironment = (): NodeJS.ProcessEnv => {
     env.PATH = `${EXECUTION_DIRS.PYTHON_BIN}:${currentPath}`;
 
     // Add Node modules to PATH
-    env.PATH = `${path.join(SANDBOX_DIR, 'node_modules', '.bin')}:${env.PATH}`;
+    env.PATH = `${path.join(EXECUTION_DIRS.NODE_MODULES, '.bin')}:${env.PATH}`;
 
-    // Set Node.js to find modules in /sandbox/node_modules
-    env.NODE_PATH = path.join(SANDBOX_DIR, 'node_modules');
+    // Set Node.js to find modules in js-ts/node_modules
+    env.NODE_PATH = EXECUTION_DIRS.NODE_MODULES;
 
     // Set Python to use the venv
     env.VIRTUAL_ENV = EXECUTION_DIRS.PYTHON_VENV;

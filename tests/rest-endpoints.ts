@@ -1,6 +1,6 @@
 /**
  * REST Endpoints E2E Test Script
- * 
+ *
  * Usage:
  *   npx tsx tests/rest-endpoints.ts http://localhost:3000
  *   npx tsx tests/rest-endpoints.ts https://your-actor-url.runs.apify.net/
@@ -75,7 +75,7 @@ async function testEndpointWithOutputValidation(
             body: body ? JSON.stringify(body) : undefined,
         });
 
-        const data = await response.json() as { stdout?: string; stderr?: string };
+        const data = (await response.json()) as { stdout?: string; stderr?: string };
 
         if (response.status !== expectedStatus) {
             const errorMsg = `Expected status ${expectedStatus}, got ${response.status}`;
@@ -126,14 +126,7 @@ async function main(): Promise<void> {
     );
 
     // Test 3: Execute command - error
-    await testEndpoint(
-        baseUrl,
-        'POST',
-        '/exec',
-        { command: 'exit 1' },
-        500,
-        'Execute command - exit with error',
-    );
+    await testEndpoint(baseUrl, 'POST', '/exec', { command: 'exit 1' }, 500, 'Execute command - exit with error');
 
     // Test 4: Execute command - missing command
     await testEndpoint(baseUrl, 'POST', '/exec', {}, 400, 'Execute command - missing command field');
@@ -151,14 +144,7 @@ async function main(): Promise<void> {
     );
 
     // Test 6: Read file
-    await testEndpoint(
-        baseUrl,
-        'POST',
-        '/read-file',
-        { path: testFilePath },
-        200,
-        'Read file - success',
-    );
+    await testEndpoint(baseUrl, 'POST', '/read-file', { path: testFilePath }, 200, 'Read file - success');
 
     // Test 7: Read non-existent file
     await testEndpoint(
@@ -174,14 +160,7 @@ async function main(): Promise<void> {
     await testEndpoint(baseUrl, 'POST', '/read-file', {}, 400, 'Read file - missing path field');
 
     // Test 9: Write file - missing path
-    await testEndpoint(
-        baseUrl,
-        'POST',
-        '/write-file',
-        { content: 'test' },
-        400,
-        'Write file - missing path field',
-    );
+    await testEndpoint(baseUrl, 'POST', '/write-file', { content: 'test' }, 400, 'Write file - missing path field');
 
     // Test 10: Write file - missing content
     await testEndpoint(
@@ -194,14 +173,7 @@ async function main(): Promise<void> {
     );
 
     // Test 11: List files
-    await testEndpoint(
-        baseUrl,
-        'POST',
-        '/list-files',
-        { path: '/tmp' },
-        200,
-        'List files - success',
-    );
+    await testEndpoint(baseUrl, 'POST', '/list-files', { path: '/tmp' }, 200, 'List files - success');
 
     // Test 12: List files - default path
     await testEndpoint(baseUrl, 'POST', '/list-files', {}, 200, 'List files - default path');
@@ -285,7 +257,14 @@ async function main(): Promise<void> {
     await testEndpoint(baseUrl, 'POST', '/execute-code', { language: 'js' }, 400, 'Execute code - missing code field');
 
     // Test 21: Execute code - missing language field
-    await testEndpoint(baseUrl, 'POST', '/execute-code', { code: 'console.log("test")' }, 400, 'Execute code - missing language field');
+    await testEndpoint(
+        baseUrl,
+        'POST',
+        '/execute-code',
+        { code: 'console.log("test")' },
+        400,
+        'Execute code - missing language field',
+    );
 
     // Test 22: Execute code - empty code
     await testEndpoint(
@@ -317,6 +296,45 @@ async function main(): Promise<void> {
         'Execute code - Python error',
     );
 
+    // Test 25: Execute code - JavaScript working directory (pwd should be /sandbox/js-ts)
+    await testEndpointWithOutputValidation(
+        baseUrl,
+        'POST',
+        '/execute-code',
+        {
+            code: 'import { execSync } from "node:child_process";\nconst cwd = execSync("pwd").toString().trim();\nconsole.log(cwd);',
+            language: 'js',
+        },
+        200,
+        '/sandbox/js-ts',
+        'Execute code - JavaScript working directory verification',
+    );
+
+    // Test 26: Execute code - TypeScript working directory (pwd should be /sandbox/js-ts)
+    await testEndpointWithOutputValidation(
+        baseUrl,
+        'POST',
+        '/execute-code',
+        {
+            code: 'import { execSync } from "node:child_process";\nconst cwd: string = execSync("pwd").toString().trim();\nconsole.log(cwd);',
+            language: 'ts',
+        },
+        200,
+        '/sandbox/js-ts',
+        'Execute code - TypeScript working directory verification',
+    );
+
+    // Test 27: Execute code - Python working directory (pwd should be /sandbox/py)
+    await testEndpointWithOutputValidation(
+        baseUrl,
+        'POST',
+        '/execute-code',
+        { code: 'import os\nprint(os.getcwd())', language: 'py' },
+        200,
+        '/sandbox/py',
+        'Execute code - Python working directory verification',
+    );
+
     // Summary
     console.log(`\n${colors.blue}Test Summary${colors.reset}`);
     const passed = results.filter((r) => r.passed).length;
@@ -327,9 +345,11 @@ async function main(): Promise<void> {
 
     if (passed < total) {
         console.log(`\n${colors.red}Failed tests:${colors.reset}`);
-        results.filter((r) => !r.passed).forEach((r) => {
-            console.log(`  - ${r.name}: ${r.error}`);
-        });
+        results
+            .filter((r) => !r.passed)
+            .forEach((r) => {
+                console.log(`  - ${r.name}: ${r.error}`);
+            });
     }
 
     console.log('');
