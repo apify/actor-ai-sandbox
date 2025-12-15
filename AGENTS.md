@@ -49,6 +49,7 @@ The Apify log package provides the following methods for logging:
 - `log.internal()` - Internal level logs (internal/system messages)
 
 **Best practices:**
+
 - Use `log.debug()` for detailed operation-level diagnostics (inside functions)
 - Use `log.info()` for general informational messages (API requests, successful operations)
 - Use `log.warning()` for potentially problematic situations (validation failures, unexpected states)
@@ -86,6 +87,7 @@ app.get('/', (req: Request, res: Response) => {
 ```
 
 Key points:
+
 - Detect the `x-apify-container-server-readiness-probe` header in incoming requests
 - Respond with HTTP 200 status code for both readiness probe and normal requests
 - This enables proper Actor lifecycle management in standby mode
@@ -121,6 +123,7 @@ Ask first:
 - proxy configuration changes (requires paid plan)
 - Dockerfile changes affecting builds
 - deleting datasets or key-value stores
+- **git commits** - Only commit when explicitly requested by the user. Never commit automatically.
 
 ## Project Structure
 
@@ -144,44 +147,44 @@ The `manager/` Actor is a special orchestrator that exposes a Model Context Prot
 ### Architecture Overview
 
 - **Manager Actor**: Central orchestrator that holds all state and connection management
-  - Exposes MCP server with tools for sandbox lifecycle and execution
-  - Routes all requests to appropriate sandbox instances based on sandbox ID
-  - Maintains state across multiple sandbox sessions
-  - Acts as the single entry point for all AI agent interactions
+    - Exposes MCP server with tools for sandbox lifecycle and execution
+    - Routes all requests to appropriate sandbox instances based on sandbox ID
+    - Maintains state across multiple sandbox sessions
+    - Acts as the single entry point for all AI agent interactions
 
 - **Sandbox Actors**: Isolated execution environments for AI coding tasks
-  - Run in separate Docker containers for security and isolation
-  - Execute code, file operations, and commands in isolation
-  - Report results back to the manager
-  - Can be spawned and destroyed dynamically
+    - Run in separate Docker containers for security and isolation
+    - Execute code, file operations, and commands in isolation
+    - Report results back to the manager
+    - Can be spawned and destroyed dynamically
 
 ### MCP Tools Exposed by Manager
 
 The manager Actor exposes the following MCP tools:
 
 - `create-sandbox` - Creates a new sandbox Actor instance with a unique ID
-  - Parameters: `options` (optional configuration for the sandbox)
-  - Returns: `sandboxId` (unique identifier for the new sandbox)
+    - Parameters: `options` (optional configuration for the sandbox)
+    - Returns: `sandboxId` (unique identifier for the new sandbox)
 
 - `destroy-sandbox` - Terminates and cleans up a sandbox Actor
-  - Parameters: `sandboxId` (ID of sandbox to destroy)
-  - Returns: Success confirmation
+    - Parameters: `sandboxId` (ID of sandbox to destroy)
+    - Returns: Success confirmation
 
 - `run-command` - Executes a shell command in a specific sandbox
-  - Parameters: `sandboxId`, `command`, `timeout` (optional), `cwd` (optional)
-  - Returns: Command output, exit code, stderr/stdout
+    - Parameters: `sandboxId`, `command`, `timeout` (optional), `cwd` (optional)
+    - Returns: Command output, exit code, stderr/stdout
 
 - `write-file` - Writes content to a file in a specific sandbox
-  - Parameters: `sandboxId`, `path`, `content`, `mode` (optional)
-  - Returns: Success confirmation
+    - Parameters: `sandboxId`, `path`, `content`, `mode` (optional)
+    - Returns: Success confirmation
 
 - `read-file` - Reads file contents from a specific sandbox
-  - Parameters: `sandboxId`, `path`
-  - Returns: File content or error
+    - Parameters: `sandboxId`, `path`
+    - Returns: File content or error
 
 - `list-files` - Lists files and directories in a sandbox path
-  - Parameters: `sandboxId`, `path` (optional, defaults to root)
-  - Returns: Directory listing
+    - Parameters: `sandboxId`, `path` (optional, defaults to root)
+    - Returns: Directory listing
 
 ### Request Flow
 
@@ -210,13 +213,13 @@ The input schema defines the input parameters for an Actor. It's a JSON object c
 
 ```json
 {
-  "title": "<INPUT-SCHEMA-TITLE>",
-  "type": "object",
-  "schemaVersion": 1,
-  "properties": {
-    /* define input fields here */
-  },
-  "required": []
+    "title": "<INPUT-SCHEMA-TITLE>",
+    "type": "object",
+    "schemaVersion": 1,
+    "properties": {
+        /* define input fields here */
+    },
+    "required": []
 }
 ```
 
@@ -224,48 +227,48 @@ The input schema defines the input parameters for an Actor. It's a JSON object c
 
 ```json
 {
-  "title": "E-commerce Product Scraper Input",
-  "type": "object",
-  "schemaVersion": 1,
-  "properties": {
-    "startUrls": {
-      "title": "Start URLs",
-      "type": "array",
-      "description": "URLs to start scraping from (category pages or product pages)",
-      "editor": "requestListSources",
-      "default": [{ "url": "https://example.com/category" }],
-      "prefill": [{ "url": "https://example.com/category" }]
+    "title": "E-commerce Product Scraper Input",
+    "type": "object",
+    "schemaVersion": 1,
+    "properties": {
+        "startUrls": {
+            "title": "Start URLs",
+            "type": "array",
+            "description": "URLs to start scraping from (category pages or product pages)",
+            "editor": "requestListSources",
+            "default": [{ "url": "https://example.com/category" }],
+            "prefill": [{ "url": "https://example.com/category" }]
+        },
+        "followVariants": {
+            "title": "Follow Product Variants",
+            "type": "boolean",
+            "description": "Whether to scrape product variants (different colors, sizes)",
+            "default": true
+        },
+        "maxRequestsPerCrawl": {
+            "title": "Max Requests per Crawl",
+            "type": "integer",
+            "description": "Maximum number of pages to scrape (0 = unlimited)",
+            "default": 1000,
+            "minimum": 0
+        },
+        "proxyConfiguration": {
+            "title": "Proxy Configuration",
+            "type": "object",
+            "description": "Proxy settings for anti-bot protection",
+            "editor": "proxy",
+            "default": { "useApifyProxy": false }
+        },
+        "locale": {
+            "title": "Locale",
+            "type": "string",
+            "description": "Language/country code for localized content",
+            "default": "cs",
+            "enum": ["cs", "en", "de", "sk"],
+            "enumTitles": ["Czech", "English", "German", "Slovak"]
+        }
     },
-    "followVariants": {
-      "title": "Follow Product Variants",
-      "type": "boolean",
-      "description": "Whether to scrape product variants (different colors, sizes)",
-      "default": true
-    },
-    "maxRequestsPerCrawl": {
-      "title": "Max Requests per Crawl",
-      "type": "integer",
-      "description": "Maximum number of pages to scrape (0 = unlimited)",
-      "default": 1000,
-      "minimum": 0
-    },
-    "proxyConfiguration": {
-      "title": "Proxy Configuration",
-      "type": "object",
-      "description": "Proxy settings for anti-bot protection",
-      "editor": "proxy",
-      "default": { "useApifyProxy": false }
-    },
-    "locale": {
-      "title": "Locale",
-      "type": "string",
-      "description": "Language/country code for localized content",
-      "default": "cs",
-      "enum": ["cs", "en", "de", "sk"],
-      "enumTitles": ["Czech", "English", "German", "Slovak"]
-    }
-  },
-  "required": ["startUrls"]
+    "required": ["startUrls"]
 }
 ```
 
@@ -277,11 +280,11 @@ The Actor output schema builds upon the schemas for the dataset and key-value st
 
 ```json
 {
-  "actorOutputSchemaVersion": 1,
-  "title": "<OUTPUT-SCHEMA-TITLE>",
-  "properties": {
-    /* define your outputs here */
-  }
+    "actorOutputSchemaVersion": 1,
+    "title": "<OUTPUT-SCHEMA-TITLE>",
+    "properties": {
+        /* define your outputs here */
+    }
 }
 ```
 
@@ -289,20 +292,20 @@ The Actor output schema builds upon the schemas for the dataset and key-value st
 
 ```json
 {
-  "actorOutputSchemaVersion": 1,
-  "title": "Output schema of the files scraper",
-  "properties": {
-    "files": {
-      "type": "string",
-      "title": "Files",
-      "template": "{{links.apiDefaultKeyValueStoreUrl}}/keys"
-    },
-    "dataset": {
-      "type": "string",
-      "title": "Dataset",
-      "template": "{{links.apiDefaultDatasetUrl}}/items"
+    "actorOutputSchemaVersion": 1,
+    "title": "Output schema of the files scraper",
+    "properties": {
+        "files": {
+            "type": "string",
+            "title": "Files",
+            "template": "{{links.apiDefaultKeyValueStoreUrl}}/keys"
+        },
+        "dataset": {
+            "type": "string",
+            "title": "Dataset",
+            "template": "{{links.apiDefaultDatasetUrl}}/items"
+        }
     }
-  }
 }
 ```
 
@@ -328,7 +331,7 @@ The dataset schema defines how your Actor's output data is structured, transform
 Consider an example Actor that calls `Actor.pushData()` to store data into dataset:
 
 ```typescript
-import { Actor } from "apify";
+import { Actor } from 'apify';
 // Initialize the JavaScript SDK
 await Actor.init();
 
@@ -336,15 +339,14 @@ await Actor.init();
  * Actor code
  */
 await Actor.pushData({
-  numericField: 10,
-  pictureUrl:
-    "https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png",
-  linkUrl: "https://google.com",
-  textField: "Google",
-  booleanField: true,
-  dateField: new Date(),
-  arrayField: ["#hello", "#world"],
-  objectField: {},
+    numericField: 10,
+    pictureUrl: 'https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png',
+    linkUrl: 'https://google.com',
+    textField: 'Google',
+    booleanField: true,
+    dateField: new Date(),
+    arrayField: ['#hello', '#world'],
+    objectField: {},
 });
 
 // Exit successfully
@@ -355,13 +357,13 @@ To set up the Actor's output tab UI, reference a dataset schema file in `.actor/
 
 ```json
 {
-  "actorSpecification": 1,
-  "name": "book-library-scraper",
-  "title": "Book Library Scraper",
-  "version": "1.0.0",
-  "storages": {
-    "dataset": "./dataset_schema.json"
-  }
+    "actorSpecification": 1,
+    "name": "book-library-scraper",
+    "title": "Book Library Scraper",
+    "version": "1.0.0",
+    "storages": {
+        "dataset": "./dataset_schema.json"
+    }
 }
 ```
 
@@ -369,62 +371,62 @@ Then create the dataset schema in `.actor/dataset_schema.json`:
 
 ```json
 {
-  "actorSpecification": 1,
-  "fields": {},
-  "views": {
-    "overview": {
-      "title": "Overview",
-      "transformation": {
-        "fields": [
-          "pictureUrl",
-          "linkUrl",
-          "textField",
-          "booleanField",
-          "arrayField",
-          "objectField",
-          "dateField",
-          "numericField"
-        ]
-      },
-      "display": {
-        "component": "table",
-        "properties": {
-          "pictureUrl": {
-            "label": "Image",
-            "format": "image"
-          },
-          "linkUrl": {
-            "label": "Link",
-            "format": "link"
-          },
-          "textField": {
-            "label": "Text",
-            "format": "text"
-          },
-          "booleanField": {
-            "label": "Boolean",
-            "format": "boolean"
-          },
-          "arrayField": {
-            "label": "Array",
-            "format": "array"
-          },
-          "objectField": {
-            "label": "Object",
-            "format": "object"
-          },
-          "dateField": {
-            "label": "Date",
-            "format": "date"
-          },
-          "numericField": {
-            "label": "Number",
-            "format": "number"
-          }
+    "actorSpecification": 1,
+    "fields": {},
+    "views": {
+        "overview": {
+            "title": "Overview",
+            "transformation": {
+                "fields": [
+                    "pictureUrl",
+                    "linkUrl",
+                    "textField",
+                    "booleanField",
+                    "arrayField",
+                    "objectField",
+                    "dateField",
+                    "numericField"
+                ]
+            },
+            "display": {
+                "component": "table",
+                "properties": {
+                    "pictureUrl": {
+                        "label": "Image",
+                        "format": "image"
+                    },
+                    "linkUrl": {
+                        "label": "Link",
+                        "format": "link"
+                    },
+                    "textField": {
+                        "label": "Text",
+                        "format": "text"
+                    },
+                    "booleanField": {
+                        "label": "Boolean",
+                        "format": "boolean"
+                    },
+                    "arrayField": {
+                        "label": "Array",
+                        "format": "array"
+                    },
+                    "objectField": {
+                        "label": "Object",
+                        "format": "object"
+                    },
+                    "dateField": {
+                        "label": "Date",
+                        "format": "date"
+                    },
+                    "numericField": {
+                        "label": "Number",
+                        "format": "number"
+                    }
+                }
+            }
         }
-      }
     }
-  }
 }
 ```
 
@@ -432,31 +434,31 @@ Then create the dataset schema in `.actor/dataset_schema.json`:
 
 ```json
 {
-  "actorSpecification": 1,
-  "fields": {},
-  "views": {
-    "<VIEW_NAME>": {
-      "title": "string (required)",
-      "description": "string (optional)",
-      "transformation": {
-        "fields": ["string (required)"],
-        "unwind": ["string (optional)"],
-        "flatten": ["string (optional)"],
-        "omit": ["string (optional)"],
-        "limit": "integer (optional)",
-        "desc": "boolean (optional)"
-      },
-      "display": {
-        "component": "table (required)",
-        "properties": {
-          "<FIELD_NAME>": {
-            "label": "string (optional)",
-            "format": "text|number|date|link|boolean|image|array|object (optional)"
-          }
+    "actorSpecification": 1,
+    "fields": {},
+    "views": {
+        "<VIEW_NAME>": {
+            "title": "string (required)",
+            "description": "string (optional)",
+            "transformation": {
+                "fields": ["string (required)"],
+                "unwind": ["string (optional)"],
+                "flatten": ["string (optional)"],
+                "omit": ["string (optional)"],
+                "limit": "integer (optional)",
+                "desc": "boolean (optional)"
+            },
+            "display": {
+                "component": "table (required)",
+                "properties": {
+                    "<FIELD_NAME>": {
+                        "label": "string (optional)",
+                        "format": "text|number|date|link|boolean|image|array|object (optional)"
+                    }
+                }
+            }
         }
-      }
     }
-  }
 }
 ```
 
@@ -501,19 +503,19 @@ The key-value store schema organizes keys into logical groups called collections
 Consider an example Actor that calls `Actor.setValue()` to save records into the key-value store:
 
 ```typescript
-import { Actor } from "apify";
+import { Actor } from 'apify';
 // Initialize the JavaScript SDK
 await Actor.init();
 
 /**
  * Actor code
  */
-await Actor.setValue("document-1", "my text data", {
-  contentType: "text/plain",
+await Actor.setValue('document-1', 'my text data', {
+    contentType: 'text/plain',
 });
 
 await Actor.setValue(`image-${imageID}`, imageBuffer, {
-  contentType: "image/jpeg",
+    contentType: 'image/jpeg',
 });
 
 // Exit successfully
@@ -524,13 +526,13 @@ To configure the key-value store schema, reference a schema file in `.actor/acto
 
 ```json
 {
-  "actorSpecification": 1,
-  "name": "data-collector",
-  "title": "Data Collector",
-  "version": "1.0.0",
-  "storages": {
-    "keyValueStore": "./key_value_store_schema.json"
-  }
+    "actorSpecification": 1,
+    "name": "data-collector",
+    "title": "Data Collector",
+    "version": "1.0.0",
+    "storages": {
+        "keyValueStore": "./key_value_store_schema.json"
+    }
 }
 ```
 
@@ -538,21 +540,21 @@ Then create the key-value store schema in `.actor/key_value_store_schema.json`:
 
 ```json
 {
-  "actorKeyValueStoreSchemaVersion": 1,
-  "title": "Key-Value Store Schema",
-  "collections": {
-    "documents": {
-      "title": "Documents",
-      "description": "Text documents stored by the Actor",
-      "keyPrefix": "document-"
-    },
-    "images": {
-      "title": "Images",
-      "description": "Images stored by the Actor",
-      "keyPrefix": "image-",
-      "contentTypes": ["image/jpeg"]
+    "actorKeyValueStoreSchemaVersion": 1,
+    "title": "Key-Value Store Schema",
+    "collections": {
+        "documents": {
+            "title": "Documents",
+            "description": "Text documents stored by the Actor",
+            "keyPrefix": "document-"
+        },
+        "images": {
+            "title": "Images",
+            "description": "Images stored by the Actor",
+            "keyPrefix": "image-",
+            "contentTypes": ["image/jpeg"]
+        }
     }
-  }
 }
 ```
 
@@ -560,19 +562,19 @@ Then create the key-value store schema in `.actor/key_value_store_schema.json`:
 
 ```json
 {
-  "actorKeyValueStoreSchemaVersion": 1,
-  "title": "string (required)",
-  "description": "string (optional)",
-  "collections": {
-    "<COLLECTION_NAME>": {
-      "title": "string (required)",
-      "description": "string (optional)",
-      "key": "string (conditional - use key OR keyPrefix)",
-      "keyPrefix": "string (conditional - use key OR keyPrefix)",
-      "contentTypes": ["string (optional)"],
-      "jsonSchema": "object (optional)"
+    "actorKeyValueStoreSchemaVersion": 1,
+    "title": "string (required)",
+    "description": "string (optional)",
+    "collections": {
+        "<COLLECTION_NAME>": {
+            "title": "string (required)",
+            "description": "string (optional)",
+            "key": "string (conditional - use key OR keyPrefix)",
+            "keyPrefix": "string (conditional - use key OR keyPrefix)",
+            "contentTypes": ["string (optional)"],
+            "jsonSchema": "object (optional)"
+        }
     }
-  }
 }
 ```
 
@@ -610,6 +612,4 @@ Otherwise, reference: `@https://mcp.apify.com/`
 - [crawlee.dev](https://crawlee.dev) - Crawlee documentation
 - [whitepaper.actor](https://raw.githubusercontent.com/apify/actor-whitepaper/refs/heads/master/README.md) - Complete Actor specification
 
-
 NEVER EVER READ OR OPEN OR EDIT CONTENTS OF `mcp/` DIR.
-
