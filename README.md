@@ -1,4 +1,4 @@
-# Apify Actor sandbox
+# Apify code sandbox
 
 Isolated sandbox for running AI coding operations in a containerized environment. 🚀
 
