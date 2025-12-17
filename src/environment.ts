@@ -126,7 +126,7 @@ export const initializePythonEnvironment = async (): Promise<void> => {
         // Create a clean environment without PYTHONHOME/VIRTUAL_ENV to prevent conflicts
         const cleanEnv: NodeJS.ProcessEnv = {};
         Object.keys(process.env).forEach((key) => {
-            if (!key.startsWith('APIFY_') && key !== 'PYTHONHOME' && key !== 'VIRTUAL_ENV') {
+            if (key !== 'PYTHONHOME' && key !== 'VIRTUAL_ENV') {
                 cleanEnv[key] = process.env[key];
             }
         });
@@ -331,11 +331,9 @@ export const setupExecutionEnvironment = async (input: {
 export const getExecutionEnvironment = (): NodeJS.ProcessEnv => {
     const env: NodeJS.ProcessEnv = {};
 
-    // Copy non-APIFY variables
+    // Copy all environment variables
     Object.keys(process.env).forEach((key) => {
-        if (!key.startsWith('APIFY_')) {
-            env[key] = process.env[key];
-        }
+        env[key] = process.env[key];
     });
 
     // Add Python venv to PATH
