@@ -31,17 +31,20 @@ claude mcp add --transport http sandbox https://YOUR-RUN-ID.runs.apify.net/mcp
 
 Replace `YOUR-RUN-ID` with the actual run ID from your Actor execution (found in the logs).
 
-#### Apify SDK
-
-Connect programmatically using the Apify SDK for direct integration. ⚠️ **Work in progress** - SDK integration is currently being built.
-
 #### REST API
 
 Access the sandbox directly via REST API endpoints. The complete list of available endpoints and their required arguments are documented in the Actor run logs.
 
+**Health Status:** Use the `GET /health` endpoint to check the Actor's readiness:
+
+- `status: "initializing"` (HTTP 503) - Actor is still setting up dependencies and running init script
+- `status: "unhealthy"` (HTTP 503) - Init script failed, check logs for details
+- `status: "healthy"` (HTTP 200) - Actor is ready to accept requests
+
 ## Configuration
 
 - **Memory & timeout:** Configure run options to set memory allocation and execution timeout
+- **Request timeout:** All requests to the Actor have a 5-minute timeout ceiling. All operations (code execution, commands, file operations) must complete within this time limit. The `timeout` parameter in requests cannot exceed this 5-minute window
 - **Check logs:** Open the Actor run log console to view connection details and operation output
 
 ## Sandbox Environment Structure
@@ -52,12 +55,12 @@ The sandbox provides isolated execution environments for different code language
 
 - **Python**: `/sandbox/py`
     - Python code executes in this isolated directory
-    - Has access to Python virtual environment at `/sandbox/venv`
+    - Has access to Python virtual environment at `/sandbox/py/venv`
     - All pip packages installed in the venv
 
 - **JavaScript/TypeScript**: `/sandbox/js-ts`
     - JS/TS code executes in this isolated directory
-    - Has access to node_modules at `/sandbox/node_modules`
+    - Has access to node_modules at `/sandbox/js-ts/node_modules`
     - All npm packages installed in node_modules
 
 - **General Commands**: `/sandbox` (root)
@@ -90,6 +93,7 @@ Provide a bash script via the "Initialization Script" input to customize the san
 - Executes in `/sandbox` directory
 - Can install system packages, create directories, set permissions, etc.
 - Errors are logged but don't prevent Actor from starting
+- **Note:** Init scripts have a 5-minute execution timeout
 
 **Example init scripts:**
 
