@@ -4,18 +4,22 @@
 
 export interface ActorInput {
     /**
-     * Node.js/npm libraries to install for JavaScript and TypeScript code execution
+     * Node.js dependencies object for JavaScript and TypeScript code execution
+     * Format: { "package-name": "version", ... }
+     * Example: { "zod": "^3.0", "axios": "latest" }
      */
-    nodeLibraries?: string[];
+    nodeDependencies?: Record<string, string>;
 
     /**
-     * Python/pip libraries to install for Python code execution
+     * Python requirements in requirements.txt format for Python code execution
+     * Format: one package per line with optional version specifiers
+     * Example: "requests==2.31.0\npandas>=2.0.0\nnumpy"
      */
-    pythonLibraries?: string[];
+    pythonRequirementsTxt?: string;
 
     /**
      * Optional bash script to customize the sandbox environment
-     * Runs after library installation in /sandbox directory
+     * Runs after dependency installation in /sandbox directory
      */
     initScript?: string;
 }

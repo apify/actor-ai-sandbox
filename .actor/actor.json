@@ -16,25 +16,19 @@
         "type": "object",
         "schemaVersion": 1,
         "properties": {
-            "nodeLibraries": {
-                "title": "Node.js Libraries",
-                "type": "array",
-                "description": "Array of strings: Enter Node.js/npm libraries to install for JavaScript and TypeScript code execution (/sandbox/js-ts). Example: [\"zod\", \"axios\"]",
-                "items": {
-                    "type": "string"
-                },
-                "prefill": [],
-                "editor": "json"
+            "nodeDependencies": {
+                "title": "Node.js Dependencies",
+                "type": "object",
+                "description": "npm package.json dependencies object for JavaScript and TypeScript code execution (/sandbox/js-ts). Paste your dependencies in npm format. Example: {\"zod\": \"^3.0\", \"axios\": \"latest\"}",
+                "editor": "json",
+                "prefill": {}
             },
-            "pythonLibraries": {
-                "title": "Python Libraries",
-                "type": "array",
-                "description": "Array of strings: Enter Python libraries (pip packages) to install for Python code execution (/sandbox/py). Example: [\"requests\", \"pandas\"]",
-                "items": {
-                    "type": "string"
-                },
-                "prefill": [],
-                "editor": "json"
+            "pythonRequirementsTxt": {
+                "title": "Python Requirements",
+                "type": "string",
+                "description": "Python requirements in requirements.txt format for Python code execution (/sandbox/py). Paste your dependencies one per line. Example:\n requests==2.31.0\npandas>=2.0.0",
+                "editor": "textarea",
+                "prefill": ""
             },
             "initScript": {
                 "title": "Initialization Script",

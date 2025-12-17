@@ -64,14 +64,23 @@ The sandbox provides isolated execution environments for different code language
     - Shell commands via `/exec` endpoint run from sandbox root
     - Can access all subdirectories
 
-### Library Installation
+### Dependency Installation
 
-Specify libraries to install via Actor input:
+Specify dependencies to install via Actor input:
 
-- **Node.js Libraries**: npm packages for JS/TS code execution
-- **Python Libraries**: pip packages for Python code execution
+- **Node.js Dependencies**: npm packages for JS/TS code execution in native npm format
+    - Input as a JSON object: `{"package-name": "version", ...}`
+    - Example: `{"zod": "^3.0", "axios": "latest", "lodash": "4.17.21"}`
+- **Python Requirements**: pip packages for Python code execution in requirements.txt format
+    - Input as multi-line text: one package per line with optional version specifiers
+    - Example:
+        ```
+        requests==2.31.0
+        pandas>=2.0.0
+        numpy
+        ```
 
-Libraries are installed during Actor startup before any code execution, allowing your code to immediately use them.
+Dependencies are installed during Actor startup before any code execution, allowing your code to immediately use them.
 
 ### Customization with Init Script
 

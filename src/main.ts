@@ -3,10 +3,14 @@ import { Actor, log } from 'apify';
 import type { Request, Response } from 'express';
 import express from 'express';
 
-import { executeInitScript,setupExecutionEnvironment } from './environment.js';
+import { executeInitScript, setupExecutionEnvironment } from './environment.js';
 import { createMcpServer } from './mcp.js';
 import { executeCode, listFiles, readFile, runCommand, writeFile } from './operations.js';
 import type { ActorInput } from './types.js';
+
+// Track initialization state
+let initializationComplete = false;
+let initializationError: string | null = null;
 
 // The init() call configures the Actor for its environment. It's recommended to start every Actor with an init()
 await Actor.init();
@@ -14,31 +18,31 @@ await Actor.init();
 // Retrieve Actor input
 const input = await Actor.getInput<ActorInput>();
 log.info('Actor input retrieved', {
-    hasNodeLibraries: !!input?.nodeLibraries?.length,
-    hasPythonLibraries: !!input?.pythonLibraries?.length,
-    hasInitScript: !!input?.initScript,
+    hasNodeDependencies: !!input?.nodeDependencies && Object.keys(input.nodeDependencies).length > 0,
+    hasPythonRequirements: !!input?.pythonRequirementsTxt?.trim().length,
+    hasInitScript: !!input?.initScript?.trim().length,
 });
 
-// Setup execution environment with libraries
+// Setup execution environment with dependencies
 log.info('Setting up execution environment...');
 const setupResult = await setupExecutionEnvironment({
-    nodeLibraries: input?.nodeLibraries || [],
-    pythonLibraries: input?.pythonLibraries || [],
+    nodeDependencies: input?.nodeDependencies,
+    pythonRequirementsTxt: input?.pythonRequirementsTxt,
 });
 
 if (!setupResult.success) {
-    log.warning('Some libraries failed to install', {
+    log.warning('Some dependencies failed to install', {
         nodeInstalled: setupResult.nodeSetup.installed,
         nodeFailed: setupResult.nodeSetup.failed,
         pythonInstalled: setupResult.pythonSetup.installed,
         pythonFailed: setupResult.pythonSetup.failed,
     });
 } else {
-    log.info('All libraries installed successfully');
+    log.info('All dependencies installed successfully');
 }
 
-// Execute init script if provided
-if (input?.initScript) {
+// Execute init script if provided and not empty
+if (input?.initScript && input.initScript.trim().length > 0) {
     log.info('Executing init script...');
     const initResult = await executeInitScript(input.initScript);
     if (initResult.exitCode !== 0) {
@@ -47,9 +51,14 @@ if (input?.initScript) {
             stderr: initResult.stderr,
             stdout: initResult.stdout,
         });
+        initializationError = `Init script failed with exit code ${initResult.exitCode}`;
     }
+} else {
+    log.debug('No init script provided or init script is empty');
 }
 
+// Mark initialization as complete
+initializationComplete = true;
 log.info('Actor startup complete - ready for requests');
 
 // Create Express app
@@ -60,6 +69,22 @@ app.use(express.json({ limit: '50mb' }));
 
 // Health check endpoint
 app.get('/health', (_req: Request, res: Response) => {
+    if (!initializationComplete) {
+        res.status(503).json({
+            status: 'initializing',
+            message: 'Actor is initializing dependencies and running init script',
+        });
+        return;
+    }
+
+    if (initializationError) {
+        res.status(503).json({
+            status: 'unhealthy',
+            message: initializationError,
+        });
+        return;
+    }
+
     res.json({ status: 'healthy' });
 });
 

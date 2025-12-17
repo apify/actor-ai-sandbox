@@ -150,29 +150,33 @@ export const initializePythonEnvironment = async (): Promise<void> => {
 
 /**
  * Install Node.js libraries via npm
+ * Dependencies object format: { "package-name": "version", ... }
+ * Example: { "zod": "^3.0", "axios": "latest" }
  */
 export const installNodeLibraries = async (
-    libraries: string[],
+    dependencies: Record<string, string> | undefined,
 ): Promise<{
     success: boolean;
     installed: string[];
     failed: { library: string; error: string }[];
 }> => {
-    if (!libraries || libraries.length === 0) {
-        log.debug('No Node.js libraries to install');
+    if (!dependencies || Object.keys(dependencies).length === 0) {
+        log.debug('No Node.js dependencies to install');
         return { success: true, installed: [], failed: [] };
     }
 
-    log.info('Installing Node.js libraries', { count: libraries.length, libraries });
+    const packageSpecs = Object.entries(dependencies).map(([pkg, version]) => `${pkg}@${version}`);
+    log.info('Installing Node.js dependencies', { count: packageSpecs.length, packages: packageSpecs });
 
     const installed: string[] = [];
     const failed: { library: string; error: string }[] = [];
 
-    for (const library of libraries) {
+    for (const [packageName, version] of Object.entries(dependencies)) {
+        const packageSpec = `${packageName}@${version}`;
         try {
-            log.debug('Installing Node.js library', { library });
+            log.debug('Installing Node.js dependency', { package: packageSpec });
             // Install packages in /sandbox/js-ts/node_modules
-            await execAsync(`npm install --save ${library}`, {
+            await execAsync(`npm install --save ${packageSpec}`, {
                 cwd: JS_TS_CODE_DIR,
                 timeout: 120000, // 2 minutes per library
                 env: {
@@ -181,37 +185,50 @@ export const installNodeLibraries = async (
                 },
             });
 
-            installed.push(library);
-            log.debug('Node.js library installed successfully', { library });
+            installed.push(packageSpec);
+            log.debug('Node.js dependency installed successfully', { package: packageSpec });
         } catch (error) {
             const err = error as Error;
-            log.warning('Failed to install Node.js library', { library, error: err.message });
-            failed.push({ library, error: err.message });
+            log.warning('Failed to install Node.js dependency', { package: packageSpec, error: err.message });
+            failed.push({ library: packageSpec, error: err.message });
         }
     }
 
     const success = failed.length === 0;
-    log.info('Node.js libraries installation completed', { installed: installed.length, failed: failed.length });
+    log.info('Node.js dependencies installation completed', { installed: installed.length, failed: failed.length });
 
     return { success, installed, failed };
 };
 
 /**
  * Install Python libraries via pip
+ * Requirements format: requirements.txt style string with one package per line
+ * Example: "requests==2.31.0\npandas>=2.0.0\nnumpy"
  */
 export const installPythonLibraries = async (
-    libraries: string[],
+    requirementsTxt: string | undefined,
 ): Promise<{
     success: boolean;
     installed: string[];
     failed: { library: string; error: string }[];
 }> => {
-    if (!libraries || libraries.length === 0) {
-        log.debug('No Python libraries to install');
+    if (!requirementsTxt || requirementsTxt.trim().length === 0) {
+        log.debug('No Python requirements to install');
         return { success: true, installed: [], failed: [] };
     }
 
-    log.info('Installing Python libraries', { count: libraries.length, libraries });
+    // Parse requirements.txt format
+    const requirements = requirementsTxt
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0 && !line.startsWith('#'));
+
+    if (requirements.length === 0) {
+        log.debug('No Python requirements to install (after parsing)');
+        return { success: true, installed: [], failed: [] };
+    }
+
+    log.info('Installing Python requirements', { count: requirements.length, requirements });
 
     const installed: string[] = [];
     const failed: { library: string; error: string }[] = [];
@@ -221,35 +238,35 @@ export const installPythonLibraries = async (
 
     const pipBinary = path.join(EXECUTION_DIRS.PYTHON_BIN, 'pip');
 
-    for (const library of libraries) {
+    for (const requirement of requirements) {
         try {
-            log.debug('Installing Python library', { library });
-            await execAsync(`${pipBinary} install ${library}`, {
-                timeout: 120000, // 2 minutes per library
+            log.debug('Installing Python requirement', { requirement });
+            await execAsync(`${pipBinary} install ${requirement}`, {
+                timeout: 120000, // 2 minutes per requirement
             });
 
-            installed.push(library);
-            log.debug('Python library installed successfully', { library });
+            installed.push(requirement);
+            log.debug('Python requirement installed successfully', { requirement });
         } catch (error) {
             const err = error as Error;
-            log.warning('Failed to install Python library', { library, error: err.message });
-            failed.push({ library, error: err.message });
+            log.warning('Failed to install Python requirement', { requirement, error: err.message });
+            failed.push({ library: requirement, error: err.message });
         }
     }
 
     const success = failed.length === 0;
-    log.info('Python libraries installation completed', { installed: installed.length, failed: failed.length });
+    log.info('Python requirements installation completed', { installed: installed.length, failed: failed.length });
 
     return { success, installed, failed };
 };
 
 /**
  * Setup complete execution environment
- * Initializes both Node.js and Python environments and installs specified libraries
+ * Initializes both Node.js and Python environments and installs specified dependencies
  */
 export const setupExecutionEnvironment = async (input: {
-    nodeLibraries?: string[];
-    pythonLibraries?: string[];
+    nodeDependencies?: Record<string, string>;
+    pythonRequirementsTxt?: string;
 }): Promise<{
     success: boolean;
     nodeSetup: { success: boolean; installed: string[]; failed: { library: string; error: string }[] };
@@ -269,20 +286,20 @@ export const setupExecutionEnvironment = async (input: {
         log.error('Environment initialization failed', { error: err.message });
     }
 
-    // Install libraries
+    // Install dependencies
     const [nodeSetup, pythonSetup] = await Promise.all([
-        installNodeLibraries(input.nodeLibraries || []),
-        installPythonLibraries(input.pythonLibraries || []),
+        installNodeLibraries(input.nodeDependencies),
+        installPythonLibraries(input.pythonRequirementsTxt),
     ]);
 
     const success = errors.length === 0 && nodeSetup.success && pythonSetup.success;
 
     log.info('Execution environment setup completed', {
         success,
-        nodeLibrariesInstalled: nodeSetup.installed.length,
-        nodeLibrariesFailed: nodeSetup.failed.length,
-        pythonLibrariesInstalled: pythonSetup.installed.length,
-        pythonLibrariesFailed: pythonSetup.failed.length,
+        nodeDependenciesInstalled: nodeSetup.installed.length,
+        nodeDependenciesFailed: nodeSetup.failed.length,
+        pythonRequirementsInstalled: pythonSetup.installed.length,
+        pythonRequirementsFailed: pythonSetup.failed.length,
     });
 
     return {
