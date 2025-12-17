@@ -7,6 +7,7 @@ Isolated sandbox for running AI coding operations in a containerized environment
 - **🔒 Execute untrusted code safely:** Run potentially unsafe code in an isolated container with controlled resources and security boundaries
 - **🤖 AI agent development:** Provide isolated and managed development environments where AI agents can code, test, and execute operations securely
 - **📦 Sandboxed operations:** Execute system commands, file operations, and custom scripts in a contained environment
+- **🖥️ Interactive debugging:** Access the sandbox via browser-based shell terminal for real-time exploration and troubleshooting
 
 ## How to run
 
@@ -40,6 +41,10 @@ Access the sandbox directly via REST API endpoints. The complete list of availab
 - `status: "initializing"` (HTTP 503) - Actor is still setting up dependencies and running init script
 - `status: "unhealthy"` (HTTP 503) - Init script failed, check logs for details
 - `status: "healthy"` (HTTP 200) - Actor is ready to accept requests
+
+#### Interactive Shell Terminal
+
+Access an interactive shell terminal in your browser at `https://YOUR-RUN-ID.runs.apify.net/shell` (replace with your actual run ID).
 
 ## Configuration
 

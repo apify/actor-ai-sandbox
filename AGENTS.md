@@ -92,6 +92,20 @@ Key points:
 - Respond with HTTP 200 status code for both readiness probe and normal requests
 - This enables proper Actor lifecycle management in standby mode
 
+## TypeScript Type Checking
+
+When you just need to type check without generating output files, use the `--noEmit` flag:
+
+```bash
+# Type check only (faster, no output files)
+tsc --noEmit
+
+# Full build (generates output to dist/)
+npm run build
+```
+
+This is useful during development to quickly verify type correctness without writing files to disk.
+
 ## Commands
 
 ```bash

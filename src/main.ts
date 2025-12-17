@@ -1,3 +1,5 @@
+import { createServer } from 'node:http';
+
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { Actor, log } from 'apify';
 import type { Request, Response } from 'express';
@@ -6,11 +8,18 @@ import express from 'express';
 import { executeInitScript, setupExecutionEnvironment } from './environment.js';
 import { createMcpServer } from './mcp.js';
 import { executeCode, listFiles, readFile, runCommand, writeFile } from './operations.js';
+import { getShellHTML, initializeShellServer } from './shell.js';
 import type { ActorInput } from './types.js';
 
 // Track initialization state
 let initializationComplete = false;
 let initializationError: string | null = null;
+
+// Check if running in local mode
+const isLocalMode = process.env.MODE === 'local';
+if (isLocalMode) {
+    log.info('🔧 Running in LOCAL MODE - Sandbox directories and environment setup will be skipped');
+}
 
 // The init() call configures the Actor for its environment. It's recommended to start every Actor with an init()
 await Actor.init();
@@ -18,6 +27,7 @@ await Actor.init();
 // Retrieve Actor input
 const input = await Actor.getInput<ActorInput>();
 log.info('Actor input retrieved', {
+    mode: isLocalMode ? 'local' : 'production',
     hasNodeDependencies: !!input?.nodeDependencies && Object.keys(input.nodeDependencies).length > 0,
     hasPythonRequirements: !!input?.pythonRequirementsTxt?.trim().length,
     hasInitScript: !!input?.initScript?.trim().length,
@@ -64,8 +74,16 @@ log.info('Actor startup complete - ready for requests');
 // Create Express app
 const app = express();
 
+// Create HTTP server for WebSocket support
+const server = createServer(app);
+
 // Middleware
 app.use(express.json({ limit: '50mb' }));
+
+// Serve xterm.js assets from node_modules for shell terminal
+app.use('/xterm', express.static('./node_modules/@xterm/xterm/css'));
+app.use('/xterm', express.static('./node_modules/@xterm/xterm/lib'));
+app.use('/xterm-addon', express.static('./node_modules/@xterm/addon-fit/lib'));
 
 // Health check endpoint
 app.get('/health', (_req: Request, res: Response) => {
@@ -88,20 +106,26 @@ app.get('/health', (_req: Request, res: Response) => {
     res.json({ status: 'healthy' });
 });
 
+// Shell terminal endpoint
+app.get('/shell', (_req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(getShellHTML());
+});
+
 // MCP endpoint using proper StreamableHTTPServerTransport
 app.post('/mcp', async (req: Request, res: Response) => {
     log.info('MCP request received', { body: req.body });
-    const server = createMcpServer();
+    const mcpServer = createMcpServer();
     try {
         const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
             sessionIdGenerator: undefined,
         });
-        await server.connect(transport);
+        await mcpServer.connect(transport);
         await transport.handleRequest(req, res, req.body);
         res.on('close', () => {
             log.info('MCP request closed');
             void transport.close();
-            void server.close();
+            void mcpServer.close();
         });
     } catch (error) {
         log.error('MCP request error', { error });
@@ -309,8 +333,11 @@ const port = parseInt(process.env.ACTOR_WEB_SERVER_PORT || '', 10) || Actor.conf
 // Get the server URL from environment variable or construct it
 const serverUrl = process.env.ACTOR_WEB_SERVER_URL || `http://localhost:${port}`;
 
+// Initialize shell WebSocket server
+initializeShellServer(server);
+
 // Start server
-app.listen(port, () => {
+server.listen(port, () => {
     log.info(`Sandbox Actor listening on port ${port}`);
     log.info(`Server URL: ${serverUrl}`);
 
@@ -347,6 +374,10 @@ app.listen(port, () => {
 
     console.log(`   GET ${serverUrl}/health`);
     console.log(`       Health check\n`);
+
+    // Shell terminal endpoint
+    console.log(`   GET ${serverUrl}/shell`);
+    console.log(`       Interactive shell terminal (WebSocket at /shell/ws)\n`);
 
     console.log('=====================================\n');
 });

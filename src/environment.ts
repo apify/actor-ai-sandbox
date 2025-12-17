@@ -263,6 +263,7 @@ export const installPythonLibraries = async (
 /**
  * Setup complete execution environment
  * Initializes both Node.js and Python environments and installs specified dependencies
+ * In local mode (MODE=local), skips sandbox initialization
  */
 export const setupExecutionEnvironment = async (input: {
     nodeDependencies?: Record<string, string>;
@@ -273,7 +274,20 @@ export const setupExecutionEnvironment = async (input: {
     pythonSetup: { success: boolean; installed: string[]; failed: { library: string; error: string }[] };
     errors: string[];
 }> => {
-    log.info('Setting up complete execution environment');
+    const isLocalMode = process.env.MODE === 'local';
+
+    log.info('Setting up complete execution environment', { mode: isLocalMode ? 'local' : 'production' });
+
+    // In local mode, skip sandbox initialization and just return success
+    if (isLocalMode) {
+        log.info('Local mode detected - skipping sandbox environment setup');
+        return {
+            success: true,
+            nodeSetup: { success: true, installed: [], failed: [] },
+            pythonSetup: { success: true, installed: [], failed: [] },
+            errors: [],
+        };
+    }
 
     const errors: string[] = [];
 
@@ -344,6 +358,7 @@ export const getExecutionEnvironment = (): NodeJS.ProcessEnv => {
 /**
  * Execute initialization bash script
  * Runs custom bash script in /sandbox directory to setup environment
+ * In local mode (MODE=local), skips script execution
  */
 export const executeInitScript = async (
     script: string,
@@ -353,7 +368,19 @@ export const executeInitScript = async (
     stderr: string;
     exitCode: number;
 }> => {
-    log.debug('Executing init script', { scriptLength: script.length });
+    const isLocalMode = process.env.MODE === 'local';
+    log.debug('Executing init script', { scriptLength: script.length, mode: isLocalMode ? 'local' : 'production' });
+
+    // In local mode, skip init script execution
+    if (isLocalMode) {
+        log.info('Local mode detected - skipping init script execution');
+        return {
+            success: true,
+            stdout: '(skipped in local mode)',
+            stderr: '',
+            exitCode: 0,
+        };
+    }
 
     const tempFiles: string[] = [];
 

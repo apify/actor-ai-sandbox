@@ -1,6 +1,13 @@
 # Stage 1: Builder - Compile TypeScript with Node.js
 FROM node:24-trixie-slim AS builder
 
+# Install build tools and Python for node-gyp (required by node-pty)
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    python3 \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 # Set working directory
 WORKDIR /build
 
