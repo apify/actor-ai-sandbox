@@ -9,6 +9,7 @@ import { executeInitScript, setupExecutionEnvironment } from './environment.js';
 import { createMcpServer } from './mcp.js';
 import { executeCode, listFiles, readFile, runCommand, writeFile } from './operations.js';
 import { getShellHTML, initializeShellServer } from './shell.js';
+import { getLandingPageHTML } from './templates/landing.js';
 import type { ActorInput } from './types.js';
 
 // Track initialization state
@@ -23,6 +24,12 @@ if (isLocalMode) {
 
 // The init() call configures the Actor for its environment. It's recommended to start every Actor with an init()
 await Actor.init();
+
+// Get the port from environment variables or Actor config
+const port = parseInt(process.env.ACTOR_WEB_SERVER_PORT || '', 10) || Actor.config.get('standbyPort') || 3000;
+
+// Get the server URL from environment variable or construct it
+const serverUrl = process.env.ACTOR_WEB_SERVER_URL || `http://localhost:${port}`;
 
 // Retrieve Actor input
 const input = await Actor.getInput<ActorInput>();
@@ -84,6 +91,17 @@ app.use(express.json({ limit: '50mb' }));
 app.use('/xterm', express.static('./node_modules/@xterm/xterm/css'));
 app.use('/xterm', express.static('./node_modules/@xterm/xterm/lib'));
 app.use('/xterm-addon', express.static('./node_modules/@xterm/addon-fit/lib'));
+
+// Landing page endpoint
+app.get('/', (_req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(
+        getLandingPageHTML({
+            serverUrl,
+            isLocalMode,
+        }),
+    );
+});
 
 // Health check endpoint
 app.get('/health', (_req: Request, res: Response) => {
@@ -327,12 +345,6 @@ app.post('/list-files', async (req: Request, res: Response) => {
     }
 });
 
-// Get the port from environment variables or Actor config
-const port = parseInt(process.env.ACTOR_WEB_SERVER_PORT || '', 10) || Actor.config.get('standbyPort') || 3000;
-
-// Get the server URL from environment variable or construct it
-const serverUrl = process.env.ACTOR_WEB_SERVER_URL || `http://localhost:${port}`;
-
 // Initialize shell WebSocket server
 initializeShellServer(server);
 
@@ -345,6 +357,10 @@ server.listen(port, () => {
     console.log('\n=====================================');
     console.log('🚀 Sandbox Actor Started');
     console.log('=====================================\n');
+
+    console.log('🏠 Landing page (open first):');
+    console.log(`   GET ${serverUrl}/`);
+    console.log('       Connection details, quick links, and endpoint URLs\n');
 
     // MCP Server URL
     console.log('📡 MCP Server Endpoint:');
@@ -377,7 +393,7 @@ server.listen(port, () => {
 
     // Shell terminal endpoint
     console.log(`   GET ${serverUrl}/shell`);
-    console.log(`       Interactive shell terminal (WebSocket at /shell/ws)\n`);
+    console.log(`       Interactive shell terminal\n`);
 
     console.log('=====================================\n');
 });

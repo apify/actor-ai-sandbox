@@ -16,6 +16,7 @@ Isolated sandbox for running AI coding operations in a containerized environment
 
 1. Run it on the Apify platform through the [Console](https://console.apify.com/)
 2. Check the Actor run log console for connection details (host, port, MCP endpoint URL)
+3. Open the landing page from the Actor run logs for connection details, quick links (shell + health), and endpoint URLs for the current run.
 
 ### Connect to the sandbox
 

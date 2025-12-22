@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sandbox Actor</title>
+    <style>
+        :root { color-scheme: light dark; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: radial-gradient(circle at 18% 20%, #f0f6ff, #e7ecf2 38%, #f8fafc) fixed, #0b1220;
+            color: #0f172a;
+            padding: 32px;
+            min-height: 100vh;
+        }
+        .page { max-width: 1080px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+        .hero {
+            display: flex; justify-content: space-between; align-items: center; gap: 12px;
+            padding: 20px 24px; background: #0f172a; color: #e2e8f0; border-radius: 12px;
+            box-shadow: 0 20px 40px rgba(15, 23, 42, 0.35);
+        }
+        .eyebrow { letter-spacing: 0.08em; text-transform: uppercase; font-size: 12px; color: #94a3b8; }
+        h1 { font-size: 28px; margin-bottom: 6px; }
+        .lead { color: #cbd5e1; }
+        .badge { background: #22c55e; color: #0f172a; padding: 8px 12px; border-radius: 999px; font-weight: 600; white-space: nowrap; }
+        .card {
+            background: rgba(255, 255, 255, 0.9); border: 1px solid #e2e8f0; border-radius: 12px;
+            padding: 18px 20px; box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+            display: flex; flex-direction: column; gap: 10px; height: 100%;
+        }
+        .card-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+        .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+        .button {
+            background: linear-gradient(120deg, #2563eb, #22d3ee); color: #0f172a; padding: 10px 14px;
+            border-radius: 8px; font-weight: 700; text-decoration: none; box-shadow: 0 10px 20px rgba(34, 211, 238, 0.35);
+        }
+        .button.secondary { background: linear-gradient(120deg, #22c55e, #a3e635); box-shadow: 0 10px 20px rgba(34, 197, 94, 0.3); }
+        .button:hover { filter: brightness(1.05); }
+        .muted { color: #475569; margin-top: 8px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; align-items: stretch; }
+        .list { list-style: none; display: grid; gap: 8px; margin-top: 12px; }
+        code {
+            background: #0f172a; color: #e2e8f0; padding: 6px 8px; border-radius: 6px;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; display: inline-block; width: 100%; overflow-x: auto;
+        }
+        @media (max-width: 640px) {
+            body { padding: 20px; }
+            .hero { flex-direction: column; align-items: flex-start; }
+            .badge { align-self: flex-start; }
+            .card-header { flex-direction: column; align-items: flex-start; }
+        }
+    </style>
+</head>
+<body>
+    <main class="page">
+        <header class="hero">
+            <div>
+                <p class="eyebrow">Sandbox Actor</p>
+                <h1>Landing page</h1>
+                <p class="lead">Connect through REST, MCP, or the interactive shell.</p>
+            </div>
+            <div class="badge"><%= modeLabel %></div>
+        </header>
+
+        <section class="card">
+            <div class="card-header">
+                <h2>Quick links</h2>
+                <div class="actions">
+                    <a class="button" href="/shell" target="_blank" rel="noopener noreferrer">Open shell terminal</a>
+                    <a class="button secondary" href="/health" target="_blank" rel="noopener noreferrer">Check health</a>
+                </div>
+            </div>
+        </section>
+
+        <section class="grid">
+            <div class="card">
+                <h3>MCP endpoint</h3>
+                <p class="muted">POST</p>
+                <code><%= serverUrl %>/mcp</code>
+            </div>
+            <div class="card">
+                <h3>Health</h3>
+                <p class="muted">GET</p>
+                <code><%= serverUrl %>/health</code>
+            </div>
+        </section>
+
+        <section class="card">
+            <h3>REST endpoints</h3>
+            <ul class="list">
+                <li><code>POST <%= serverUrl %>/exec</code> – run shell commands</li>
+                <li><code>POST <%= serverUrl %>/execute-code</code> – run JS/TS/Python</li>
+                <li><code>POST <%= serverUrl %>/read-file</code> – read a file</li>
+                <li><code>POST <%= serverUrl %>/write-file</code> – write a file</li>
+                <li><code>POST <%= serverUrl %>/list-files</code> – list a directory</li>
+            </ul>
+        </section>
+    </main>
+</body>
+</html>
