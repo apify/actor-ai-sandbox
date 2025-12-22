@@ -60,7 +60,9 @@
                 <h1>Landing page</h1>
                 <p class="lead">Connect through REST, MCP, or the interactive shell.</p>
             </div>
-            <div class="badge"><%= modeLabel %></div>
+            <% if (isLocalMode) { %>
+                <div class="badge"><%= modeLabel %></div>
+            <% } %>
         </header>
 
         <section class="card">

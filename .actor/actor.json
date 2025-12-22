@@ -35,7 +35,7 @@
                 "type": "string",
                 "description": "Optional bash script to customize the sandbox environment. Runs after library installation in /sandbox directory. Use for installing system packages, creating directories, or other setup tasks.",
                 "editor": "textarea",
-                "prefill": "#!/bin/bash\n# Example: apt-get install -y some-package\n# Example: mkdir -p /sandbox/custom-dir"
+                "prefill": "apt-get update\n# apt-get install -y curl\n# mkdir /sandbox/data"
             }
         },
         "required": []

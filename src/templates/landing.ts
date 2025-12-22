@@ -18,5 +18,6 @@ export function getLandingPageHTML({ serverUrl, isLocalMode }: LandingPageOption
     return ejs.render(landingTemplate, {
         serverUrl,
         modeLabel,
+        isLocalMode,
     });
 }
