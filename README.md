@@ -10,21 +10,25 @@ Isolated sandbox for running AI coding operations in a containerized environment
 - **🖥️ Interactive debugging:** Access the sandbox via browser-based shell terminal for real-time exploration and troubleshooting
 - **🔗 Apify Actor orchestration:** Agents can access the limited permissions Apify token (available as `APIFY_TOKEN` env var) to run other [limited permissions Actors](https://docs.apify.com/platform/actors/development/permissions), process or analyze their output, and build complex data pipelines by combining results from multiple Actors
 
-## How to run
+## Quickstart
 
 ### Start the Actor
 
 1. Run it on the Apify platform through the [Console](https://console.apify.com/)
 2. Check the Actor run log console for connection details (host, port, MCP endpoint URL)
-3. Open the landing page from the Actor run logs for connection details, quick links (shell + health), and endpoint URLs for the current run.
+3. Open the landing page link from the run logs for connection details, quick links (shell + health), and endpoint URLs for the current run.
 
-### Connect to the sandbox
+## Ways to connect
 
-Once the Actor is running, you can interact with it in three ways:
+Start the Actor (see Quickstart above), then choose how to interact:
 
-#### MCP Client
+- MCP client: Agent-driven access to run code or develop with LLM tooling.
+- REST API: Endpoints to run code or shell commands.
+- Interactive shell: Browser terminal for manual exploration.
 
-Use a Model Context Protocol (MCP) client to interact with this sandbox. See [modelcontextprotocol.io/clients](https://modelcontextprotocol.io/clients)
+### MCP Client
+
+Use a Model Context Protocol (MCP) client to interact with this sandbox. See [modelcontextprotocol.io/clients](https://modelcontextprotocol.io/clients).
 
 **Connect with Claude code:**
 
@@ -32,21 +36,76 @@ Use a Model Context Protocol (MCP) client to interact with this sandbox. See [mo
 claude mcp add --transport http sandbox https://YOUR-RUN-ID.runs.apify.net/mcp
 ```
 
-Replace `YOUR-RUN-ID` with the actual run ID from your Actor execution (found in the logs).
+Replace `YOUR-RUN-ID` with the run ID from your Actor execution (URL is also in the landing page and logs). Then prompt your agent; it will use the sandbox tools automatically over MCP.
 
-#### REST API
+### REST API
 
-Access the sandbox directly via REST API endpoints. The complete list of available endpoints and their required arguments are documented in the Actor run logs.
+Available endpoints (all URLs come from the run logs/landing page):
 
-**Health Status:** Use the `GET /health` endpoint to check the Actor's readiness:
+- `POST /mcp`
+    - Body: JSON-RPC over HTTP per MCP client
+    - Returns: JSON-RPC response
 
-- `status: "initializing"` (HTTP 503) - Actor is still setting up dependencies and running init script
-- `status: "unhealthy"` (HTTP 503) - Init script failed, check logs for details
-- `status: "healthy"` (HTTP 200) - Actor is ready to accept requests
+- `POST /exec`
+    - Body: `{ command: string; cwd?: string; timeout?: number }`
+    - Returns (200 on success, 500 on command error): `{ stdout: string; stderr: string; exitCode: number }`
 
-#### Interactive Shell Terminal
+- `POST /execute-code`
+    - Body: `{ code: string; language: 'js' | 'ts' | 'py'; timeout?: number }`
+    - Returns (200 on success, 500 on execution error): `{ stdout: string; stderr: string; exitCode: number; language: string }`
 
-Access an interactive shell terminal in your browser at `https://YOUR-RUN-ID.runs.apify.net/shell` (replace with your actual run ID).
+- `POST /read-file`
+    - Body: `{ path: string }`
+    - Returns (200): `{ content: string }` or (404): `{ error: string }`
+
+- `POST /write-file`
+    - Body: `{ path: string; content: string; mode?: number }`
+    - Returns (200): `{ success: boolean }` or (500): `{ error: string }`
+
+- `POST /list-files`
+    - Body: `{ path?: string }`
+    - Returns (200): `{ path: string; files: string[] }` or (500): `{ error: string }`
+
+- `GET /health`
+    - Returns (200/503): `{ status: 'healthy' | 'initializing' | 'unhealthy'; message?: string }`
+
+- `GET /shell`
+    - Returns: HTML page with embedded terminal (WebSocket at `/shell/ws`)
+
+**Health status:**
+
+- `status: "initializing"` (503) – dependencies/setup still running
+- `status: "unhealthy"` (503) – init script failed; check logs
+- `status: "healthy"` (200) – ready for requests
+
+**Call the API (TypeScript/Node):**
+
+```ts
+const baseUrl = 'https://YOUR-RUN-ID.runs.apify.net';
+const res = await fetch(`${baseUrl}/execute-code`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ code: 'print("hello")', language: 'py', timeout: 10_000 }),
+});
+const json = await res.json();
+console.log(json);
+```
+
+**Call the API (Python):**
+
+```python
+import requests
+
+base_url = "https://YOUR-RUN-ID.runs.apify.net"
+payload = {"code": "print('hello')", "language": "py", "timeout": 10_000}
+resp = requests.post(f"{base_url}/execute-code", json=payload, timeout=15)
+resp.raise_for_status()
+print(resp.json())
+```
+
+### Interactive Shell Terminal
+
+Open the interactive shell terminal URL from the run logs (also linked on the landing page) to work directly in the browser.
 
 ## Configuration
 
