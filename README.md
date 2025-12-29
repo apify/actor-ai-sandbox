@@ -49,14 +49,11 @@ Available endpoints (all URLs come from the run logs/landing page):
     - Returns: JSON-RPC response
 
 - `POST /exec`
-    - Execute shell commands
-    - Body: `{ command: string; cwd?: string; timeout?: number }`
-    - Returns (200 on success, 500 on command error): `{ stdout: string; stderr: string; exitCode: number }`
-
-- `POST /execute-code`
-    - Execute JavaScript, TypeScript, or Python code
-    - Body: `{ code: string; language: 'js' | 'ts' | 'py'; timeout?: number }`
-    - Returns (200 on success, 500 on execution error): `{ stdout: string; stderr: string; exitCode: number; language: string }`
+    - Execute shell commands OR code snippets (JavaScript, TypeScript, Python)
+    - Body: `{ command: string; language?: string; cwd?: string; timeoutSecs?: number }`
+    - Language options: `"js"`, `"javascript"`, `"ts"`, `"typescript"`, `"py"`, `"python"`, `"bash"`, `"sh"` (omit for shell)
+    - Returns (200 on success, 500 on error): `{ stdout: string; stderr: string; exitCode: number; language: string }`
+    - The `language` field in response is always present: `"shell"` for shell commands, `"js"`/`"ts"`/`"py"` for code
 
 - `POST /read-file`
     - Read file contents as JSON
@@ -90,19 +87,6 @@ Available endpoints (all URLs come from the run logs/landing page):
 #### RESTful Filesystem Endpoints
 
 Direct filesystem access using standard HTTP methods. All paths are relative to `/sandbox`.
-
-**Quick Reference:**
-
-| Method   | Endpoint              | Purpose                     | Example                       |
-| -------- | --------------------- | --------------------------- | ----------------------------- |
-| `GET`    | `/fs/{path}`          | Read file or list directory | `GET /fs/app/log.txt`         |
-| `PUT`    | `/fs/{path}`          | Write/replace file          | `PUT /fs/config.json`         |
-| `POST`   | `/fs/{path}?mkdir=1`  | Create directory            | `POST /fs/data?mkdir=1`       |
-| `POST`   | `/fs/{path}?append=1` | Append to file              | `POST /fs/log.txt?append=1`   |
-| `DELETE` | `/fs/{path}`          | Delete file/directory       | `DELETE /fs/temp?recursive=1` |
-| `HEAD`   | `/fs/{path}`          | Get metadata                | `HEAD /fs/data.json`          |
-
-**Detailed Documentation:**
 
 - `GET /fs/{path}`
     - **Read file**: Returns raw file bytes with appropriate `Content-Type` header
@@ -252,13 +236,30 @@ requests.put(f"{base_url}/fs/project/README.md", data=b"# My Project")
 
 ```ts
 const baseUrl = 'https://YOUR-RUN-ID.runs.apify.net';
-const res = await fetch(`${baseUrl}/execute-code`, {
+
+// Execute Python code
+const codeRes = await fetch(`${baseUrl}/exec`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ code: 'print("hello")', language: 'py', timeout: 10_000 }),
+    body: JSON.stringify({
+        command: 'print("hello from python")',
+        language: 'py',
+        timeoutSecs: 10,
+    }),
 });
-const json = await res.json();
-console.log(json);
+console.log(await codeRes.json());
+
+// Execute shell command
+const shellRes = await fetch(`${baseUrl}/exec`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+        command: 'ls -la',
+        cwd: '/sandbox',
+        timeoutSecs: 5,
+    }),
+});
+console.log(await shellRes.json());
 ```
 
 **Code Execution Examples (Python):**
@@ -267,8 +268,16 @@ console.log(json);
 import requests
 
 base_url = "https://YOUR-RUN-ID.runs.apify.net"
-payload = {"code": "print('hello')", "language": "py", "timeout": 10_000}
-resp = requests.post(f"{base_url}/execute-code", json=payload, timeout=15)
+
+# Execute Python code
+payload = {"command": "print('hello from python')", "language": "py", "timeoutSecs": 10}
+resp = requests.post(f"{base_url}/exec", json=payload, timeout=15)
+resp.raise_for_status()
+print(resp.json())
+
+# Execute shell command
+payload = {"command": "ls -la", "cwd": "/sandbox", "timeoutSecs": 5}
+resp = requests.post(f"{base_url}/exec", json=payload, timeout=15)
 resp.raise_for_status()
 print(resp.json())
 ```

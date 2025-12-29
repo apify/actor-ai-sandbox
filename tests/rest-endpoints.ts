@@ -226,151 +226,159 @@ async function main(): Promise<void> {
         'List files - invalid directory',
     );
 
-    // Test 14: Execute code - JavaScript success
+    // Test 14: Execute /exec - JavaScript code
     await testEndpointWithOutputValidation(
         baseUrl,
         'POST',
-        '/execute-code',
-        { code: 'console.log("Hello from JS")', language: 'js' },
+        '/exec',
+        { command: 'console.log("Hello from JS")', language: 'js' },
         200,
         'Hello from JS',
-        'Execute code - JavaScript success (verify output)',
+        'Execute /exec - JavaScript code',
     );
 
-    // Test 15: Execute code - JavaScript with newlines and number output
+    // Test 15: Execute /exec - JavaScript with language alias
     await testEndpointWithOutputValidation(
         baseUrl,
         'POST',
-        '/execute-code',
-        { code: 'const x = 42;\nconsole.log(x);', language: 'js' },
+        '/exec',
+        { command: 'console.log(42)', language: 'javascript' },
         200,
         '42',
-        'Execute code - JavaScript with newlines (verify number output)',
+        'Execute /exec - JavaScript with language alias',
     );
 
-    // Test 16: Execute code - TypeScript success with type annotation
+    // Test 16: Execute /exec - TypeScript code
     await testEndpointWithOutputValidation(
         baseUrl,
         'POST',
-        '/execute-code',
-        { code: 'const x: number = 42;\nconsole.log(x);', language: 'ts' },
+        '/exec',
+        { command: 'const x: number = 42;\nconsole.log(x);', language: 'ts' },
         200,
         '42',
-        'Execute code - TypeScript success (verify output)',
+        'Execute /exec - TypeScript code',
     );
 
-    // Test 17: Execute code - Python success
+    // Test 17: Execute /exec - TypeScript with language alias
     await testEndpointWithOutputValidation(
         baseUrl,
         'POST',
-        '/execute-code',
-        { code: 'print("Hello from Python")', language: 'py' },
+        '/exec',
+        { command: 'const y: string = "typescript";\nconsole.log(y);', language: 'typescript' },
+        200,
+        'typescript',
+        'Execute /exec - TypeScript with language alias',
+    );
+
+    // Test 18: Execute /exec - Python code
+    await testEndpointWithOutputValidation(
+        baseUrl,
+        'POST',
+        '/exec',
+        { command: 'print("Hello from Python")', language: 'py' },
         200,
         'Hello from Python',
-        'Execute code - Python success (verify output)',
+        'Execute /exec - Python code',
     );
 
-    // Test 18: Execute code - Python with newlines and number output
+    // Test 19: Execute /exec - Python with language alias
     await testEndpointWithOutputValidation(
         baseUrl,
         'POST',
-        '/execute-code',
-        { code: 'x = 42\nprint(x)', language: 'py' },
+        '/exec',
+        { command: 'x = 99\nprint(x)', language: 'python' },
         200,
-        '42',
-        'Execute code - Python with newlines (verify number output)',
+        '99',
+        'Execute /exec - Python with language alias',
     );
 
-    // Test 19: Execute code - invalid language
-    await testEndpoint(
-        baseUrl,
-        'POST',
-        '/execute-code',
-        { code: 'console.log("test")', language: 'ruby' },
-        500,
-        'Execute code - invalid language',
-    );
-
-    // Test 20: Execute code - missing code field
-    await testEndpoint(baseUrl, 'POST', '/execute-code', { language: 'js' }, 400, 'Execute code - missing code field');
-
-    // Test 21: Execute code - missing language field
-    await testEndpoint(
-        baseUrl,
-        'POST',
-        '/execute-code',
-        { code: 'console.log("test")' },
-        400,
-        'Execute code - missing language field',
-    );
-
-    // Test 22: Execute code - empty code
-    await testEndpoint(
-        baseUrl,
-        'POST',
-        '/execute-code',
-        { code: '', language: 'js' },
-        400,
-        'Execute code - empty code',
-    );
-
-    // Test 23: Execute code - JavaScript error
-    await testEndpoint(
-        baseUrl,
-        'POST',
-        '/execute-code',
-        { code: 'throw new Error("Test error")', language: 'js' },
-        500,
-        'Execute code - JavaScript error',
-    );
-
-    // Test 24: Execute code - Python error
-    await testEndpoint(
-        baseUrl,
-        'POST',
-        '/execute-code',
-        { code: 'raise ValueError("Test error")', language: 'py' },
-        500,
-        'Execute code - Python error',
-    );
-
-    // Test 25: Execute code - JavaScript working directory (pwd should be /sandbox/js-ts)
+    // Test 20: Execute /exec - bash alias (should work like shell)
     await testEndpointWithOutputValidation(
         baseUrl,
         'POST',
-        '/execute-code',
+        '/exec',
+        { command: 'echo "bash alias test"', language: 'bash' },
+        200,
+        'bash alias test',
+        'Execute /exec - bash language alias',
+    );
+
+    // Test 21: Execute /exec - sh alias (should work like shell)
+    await testEndpointWithOutputValidation(
+        baseUrl,
+        'POST',
+        '/exec',
+        { command: 'echo "sh alias test"', language: 'sh' },
+        200,
+        'sh alias test',
+        'Execute /exec - sh language alias',
+    );
+
+    // Test 22: Execute /exec - with timeoutSecs parameter
+    await testEndpointWithOutputValidation(
+        baseUrl,
+        'POST',
+        '/exec',
+        { command: 'console.log("timeout test")', language: 'js', timeoutSecs: 5 },
+        200,
+        'timeout test',
+        'Execute /exec - JavaScript with timeoutSecs',
+    );
+
+    // Test 23: Execute /exec - invalid language
+    await testEndpoint(
+        baseUrl,
+        'POST',
+        '/exec',
+        { command: 'print("test")', language: 'ruby' },
+        400,
+        'Execute /exec - invalid language',
+    );
+
+    // Test 24: Execute /exec - JavaScript error
+    await testEndpoint(
+        baseUrl,
+        'POST',
+        '/exec',
+        { command: 'throw new Error("Test error")', language: 'js' },
+        500,
+        'Execute /exec - JavaScript error',
+    );
+
+    // Test 25: Execute /exec - Python error
+    await testEndpoint(
+        baseUrl,
+        'POST',
+        '/exec',
+        { command: 'raise ValueError("Test error")', language: 'py' },
+        500,
+        'Execute /exec - Python error',
+    );
+
+    // Test 26: Execute /exec - JavaScript default working directory (should be /sandbox/js-ts)
+    await testEndpointWithOutputValidation(
+        baseUrl,
+        'POST',
+        '/exec',
         {
-            code: 'import { execSync } from "node:child_process";\nconst cwd = execSync("pwd").toString().trim();\nconsole.log(cwd);',
+            command:
+                'import { execSync } from "node:child_process";\nconst cwd = execSync("pwd").toString().trim();\nconsole.log(cwd);',
             language: 'js',
         },
         200,
         '/sandbox/js-ts',
-        'Execute code - JavaScript working directory verification',
+        'Execute /exec - JavaScript default working directory',
     );
 
-    // Test 26: Execute code - TypeScript working directory (pwd should be /sandbox/js-ts)
+    // Test 27: Execute /exec - Python default working directory (should be /sandbox/py)
     await testEndpointWithOutputValidation(
         baseUrl,
         'POST',
-        '/execute-code',
-        {
-            code: 'import { execSync } from "node:child_process";\nconst cwd: string = execSync("pwd").toString().trim();\nconsole.log(cwd);',
-            language: 'ts',
-        },
-        200,
-        '/sandbox/js-ts',
-        'Execute code - TypeScript working directory verification',
-    );
-
-    // Test 27: Execute code - Python working directory (pwd should be /sandbox/py)
-    await testEndpointWithOutputValidation(
-        baseUrl,
-        'POST',
-        '/execute-code',
-        { code: 'import os\nprint(os.getcwd())', language: 'py' },
+        '/exec',
+        { command: 'import os\nprint(os.getcwd())', language: 'py' },
         200,
         '/sandbox/py',
-        'Execute code - Python working directory verification',
+        'Execute /exec - Python default working directory',
     );
 
     // ========================================================================

@@ -99,6 +99,31 @@ const app = express();
 const server = createServer(app);
 
 // ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * Normalize language aliases to canonical form
+ * @param lang - Language string (optional)
+ * @returns Normalized language or null if invalid/not provided
+ */
+const normalizeLanguage = (lang?: string): 'js' | 'ts' | 'py' | 'shell' | null => {
+    if (!lang) return null;
+    const lower = lang.toLowerCase();
+    const mapping: Record<string, 'js' | 'ts' | 'py' | 'shell'> = {
+        js: 'js',
+        javascript: 'js',
+        ts: 'ts',
+        typescript: 'ts',
+        py: 'py',
+        python: 'py',
+        bash: 'shell',
+        sh: 'shell',
+    };
+    return mapping[lower] || null;
+};
+
+// ============================================================================
 // RESTful Filesystem Endpoints (/fs/*)
 // IMPORTANT: These MUST come before app.use(express.json()) to handle raw bodies
 // ============================================================================
@@ -552,13 +577,14 @@ app.post('/mcp', async (req: Request, res: Response) => {
     }
 });
 
-// Execute shell command
+// Execute shell command or code (unified endpoint)
 app.post('/exec', async (req: Request, res: Response) => {
     try {
-        const { command, cwd, timeout } = req.body;
+        const { command, language, cwd, timeoutSecs } = req.body;
 
-        log.info('REST /exec request received', { command, cwd, timeout });
+        log.info('REST /exec request received', { command: command?.substring(0, 100), language, cwd, timeoutSecs });
 
+        // Validate command is required
         if (!command) {
             log.debug('REST /exec: command is required');
             res.status(400).json({
@@ -567,15 +593,43 @@ app.post('/exec', async (req: Request, res: Response) => {
             return;
         }
 
-        const result = await runCommand(command, cwd, timeout);
+        // Normalize language aliases
+        const normalizedLang = normalizeLanguage(language);
 
+        // Validate language if provided
+        if (language && !normalizedLang) {
+            log.debug('REST /exec: invalid language', { language });
+            res.status(400).json({
+                error: `Invalid language: ${language}. Supported: js, javascript, ts, typescript, py, python, bash, sh`,
+            });
+            return;
+        }
+
+        // Convert timeout from seconds to milliseconds
+        const timeoutMs = timeoutSecs ? timeoutSecs * 1000 : undefined;
+
+        let result;
+
+        // Route to appropriate executor based on language
+        if (!normalizedLang || normalizedLang === 'shell') {
+            // Shell command execution
+            log.debug('REST /exec: executing shell command', { cwd, timeoutMs });
+            result = await runCommand(command, cwd, timeoutMs);
+            result = { ...result, language: 'shell' };
+        } else {
+            // Code execution (js, ts, py)
+            log.debug('REST /exec: executing code', { language: normalizedLang, cwd, timeoutMs });
+            result = await executeCode(command, normalizedLang, timeoutMs, cwd);
+        }
+
+        // Return appropriate status code
         if (result.exitCode !== 0) {
-            log.debug('REST /exec completed with error', { command, exitCode: result.exitCode });
+            log.debug('REST /exec completed with error', { language: result.language, exitCode: result.exitCode });
             res.status(500).json(result);
             return;
         }
 
-        log.info('REST /exec completed successfully', { command });
+        log.info('REST /exec completed successfully', { language: result.language });
         res.json(result);
     } catch (error) {
         log.error('REST /exec error', { error });
@@ -585,52 +639,7 @@ app.post('/exec', async (req: Request, res: Response) => {
             stdout: '',
             stderr: '',
             exitCode: 1,
-        });
-    }
-});
-
-// Execute code (JavaScript, TypeScript, or Python)
-app.post('/execute-code', async (req: Request, res: Response) => {
-    try {
-        const { code, language, timeout } = req.body;
-
-        log.info('REST /execute-code request received', { language, codeLength: code?.length, timeout });
-
-        if (!code) {
-            log.debug('REST /execute-code: code is required');
-            res.status(400).json({
-                error: 'Code is required',
-            });
-            return;
-        }
-
-        if (!language) {
-            log.debug('REST /execute-code: language is required');
-            res.status(400).json({
-                error: 'Language is required',
-            });
-            return;
-        }
-
-        const result = await executeCode(code, language, timeout);
-
-        if (result.exitCode !== 0) {
-            log.debug('REST /execute-code completed with error', { language, exitCode: result.exitCode });
-            res.status(500).json(result);
-            return;
-        }
-
-        log.info('REST /execute-code completed successfully', { language });
-        res.json(result);
-    } catch (error) {
-        log.error('REST /execute-code error', { error });
-        const err = error as Error;
-        res.status(500).json({
-            error: err.message,
-            stdout: '',
-            stderr: '',
-            exitCode: 1,
-            language: '',
+            language: 'shell',
         });
     }
 });
@@ -761,12 +770,9 @@ server.listen(port, () => {
     // REST API Endpoints
     console.log('🔧 Available REST Endpoints:');
     console.log(`   POST ${serverUrl}/exec`);
-    console.log(`       Execute shell commands`);
-    console.log(`       Body: { command: string, cwd?: string, timeout?: number }\n`);
-
-    console.log(`   POST ${serverUrl}/execute-code`);
-    console.log(`       Execute code (JavaScript, TypeScript, or Python)`);
-    console.log(`       Body: { code: string, language: 'js' | 'ts' | 'py', timeout?: number }\n`);
+    console.log(`       Execute shell commands or code (JavaScript, TypeScript, Python)`);
+    console.log(`       Body: { command: string, language?: string, cwd?: string, timeoutSecs?: number }`);
+    console.log(`       Languages: js, javascript, ts, typescript, py, python, bash, sh (omit for shell)\n`);
 
     console.log(`   POST ${serverUrl}/read-file`);
     console.log(`       Read file contents`);

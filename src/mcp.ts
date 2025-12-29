@@ -7,6 +7,27 @@ import * as z from 'zod';
 import { executeCode, listFiles, readFile, runCommand, writeFile } from './operations.js';
 
 /**
+ * Normalize language aliases to canonical form
+ * @param lang - Language string (optional)
+ * @returns Normalized language or null if invalid/not provided
+ */
+const normalizeLanguage = (lang?: string): 'js' | 'ts' | 'py' | 'shell' | null => {
+    if (!lang) return null;
+    const lower = lang.toLowerCase();
+    const mapping: Record<string, 'js' | 'ts' | 'py' | 'shell'> = {
+        js: 'js',
+        javascript: 'js',
+        ts: 'ts',
+        typescript: 'ts',
+        py: 'py',
+        python: 'py',
+        bash: 'shell',
+        sh: 'shell',
+    };
+    return mapping[lower] || null;
+};
+
+/**
  * Creates and configures the MCP server with all sandbox tools
  */
 export const createMcpServer = () => {
@@ -22,31 +43,75 @@ export const createMcpServer = () => {
         },
     );
 
-    // Register run-command tool
+    // Register execute tool (unified shell and code execution)
     server.registerTool(
-        'run-command',
+        'execute',
         {
-            description: 'Executes a shell command in the sandbox',
+            description:
+                'Executes shell commands or code snippets (JavaScript, TypeScript, Python). Each code execution is isolated in a new process.',
             inputSchema: {
-                command: z.string().describe('The shell command to execute'),
-                cwd: z.string().optional().describe('Working directory for the command'),
-                timeout: z.number().optional().describe('Timeout in milliseconds'),
+                command: z.string().describe('Shell command or code snippet to execute'),
+                language: z
+                    .string()
+                    .optional()
+                    .describe('Language: js, javascript, ts, typescript, py, python, bash, sh (omit for shell)'),
+                cwd: z.string().optional().describe('Working directory (overrides language defaults)'),
+                timeoutSecs: z.number().optional().describe('Timeout in seconds'),
             },
         },
         async ({
             command,
+            language,
             cwd,
-            timeout,
+            timeoutSecs,
         }: {
             command: string;
+            language?: string;
             cwd?: string;
-            timeout?: number;
+            timeoutSecs?: number;
         }): Promise<CallToolResult> => {
             try {
-                log.info('MCP run-command tool called', { command, cwd, timeout });
-                const result = await runCommand(command, cwd, timeout);
+                log.info('MCP execute tool called', {
+                    language,
+                    commandLength: command.length,
+                    cwd,
+                    timeoutSecs,
+                });
 
-                log.info('MCP run-command tool completed', { command, exitCode: result.exitCode });
+                // Normalize language
+                const normalizedLang = normalizeLanguage(language);
+
+                // Validate language
+                if (language && !normalizedLang) {
+                    log.warning('MCP execute tool: invalid language', { language });
+                    return {
+                        content: [
+                            {
+                                type: 'text',
+                                text: `Invalid language: ${language}. Supported: js, javascript, ts, typescript, py, python, bash, sh`,
+                            },
+                        ],
+                        isError: true,
+                    };
+                }
+
+                // Convert timeout from seconds to milliseconds
+                const timeoutMs = timeoutSecs ? timeoutSecs * 1000 : undefined;
+
+                let result;
+
+                // Route to appropriate executor
+                if (!normalizedLang || normalizedLang === 'shell') {
+                    // Shell command execution
+                    result = await runCommand(command, cwd, timeoutMs);
+                    result = { ...result, language: 'shell' };
+                } else {
+                    // Code execution
+                    result = await executeCode(command, normalizedLang, timeoutMs, cwd);
+                }
+
+                log.info('MCP execute tool completed', { language: result.language, exitCode: result.exitCode });
+
                 return {
                     content: [
                         {
@@ -54,15 +119,16 @@ export const createMcpServer = () => {
                             text: JSON.stringify(result, null, 2),
                         },
                     ],
+                    isError: result.exitCode !== 0,
                 };
             } catch (error) {
                 const err = error as Error;
-                log.error('MCP run-command tool error', { command, error: err.message });
+                log.error('MCP execute tool error', { error: err.message });
                 return {
                     content: [
                         {
                             type: 'text',
-                            text: `Error running command: ${err.message}`,
+                            text: `Error executing: ${err.message}`,
                         },
                     ],
                     isError: true,
@@ -82,15 +148,7 @@ export const createMcpServer = () => {
                 mode: z.number().optional().describe('File mode (permissions)'),
             },
         },
-        async ({
-            path,
-            content,
-            mode,
-        }: {
-            path: string;
-            content: string;
-            mode?: number;
-        }): Promise<CallToolResult> => {
+        async ({ path, content, mode }: { path: string; content: string; mode?: number }): Promise<CallToolResult> => {
             try {
                 log.info('MCP write-file tool called', { path, contentLength: content.length, mode });
                 const result = await writeFile(path, content, mode);
@@ -137,7 +195,8 @@ export const createMcpServer = () => {
     server.registerTool(
         'read-file',
         {
-            description: 'Reads file contents from the sandbox. To read only a part of a file (e.g., specific lines), use the run-command tool with utilities like sed, head, tail, or grep (e.g., "sed -n 10,20p file.txt" to read lines 10-20).',
+            description:
+                'Reads file contents from the sandbox. To read only a part of a file (e.g., specific lines), use the run-command tool with utilities like sed, head, tail, or grep (e.g., "sed -n 10,20p file.txt" to read lines 10-20).',
             inputSchema: {
                 path: z.string().describe('File path to read from'),
             },
@@ -212,7 +271,10 @@ export const createMcpServer = () => {
                     };
                 }
 
-                log.info('MCP list-files tool completed successfully', { path: result.path, fileCount: result.files.length });
+                log.info('MCP list-files tool completed successfully', {
+                    path: result.path,
+                    fileCount: result.files.length,
+                });
                 return {
                     content: [
                         {
@@ -229,68 +291,6 @@ export const createMcpServer = () => {
                         {
                             type: 'text',
                             text: `Error listing files: ${err.message}`,
-                        },
-                    ],
-                    isError: true,
-                };
-            }
-        },
-    );
-
-    // Register execute-code tool
-    server.registerTool(
-        'execute-code',
-        {
-            description: 'Executes code in JavaScript, TypeScript, or Python. Each execution is isolated in a new process (no state sharing between executions).',
-            inputSchema: {
-                code: z.string().describe('The code to execute'),
-                language: z.enum(['js', 'ts', 'py']).describe('Programming language (js, ts, or py)'),
-                timeout: z.number().optional().describe('Timeout in milliseconds'),
-            },
-        },
-        async ({
-            code,
-            language,
-            timeout,
-        }: {
-            code: string;
-            language: 'js' | 'ts' | 'py';
-            timeout?: number;
-        }): Promise<CallToolResult> => {
-            try {
-                log.info('MCP execute-code tool called', { language, codeLength: code.length, timeout });
-                const result = await executeCode(code, language, timeout);
-
-                if (result.exitCode !== 0) {
-                    log.warning('MCP execute-code tool failed', { language, exitCode: result.exitCode });
-                    return {
-                        content: [
-                            {
-                                type: 'text',
-                                text: JSON.stringify(result, null, 2),
-                            },
-                        ],
-                        isError: true,
-                    };
-                }
-
-                log.info('MCP execute-code tool completed successfully', { language });
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: JSON.stringify(result, null, 2),
-                        },
-                    ],
-                };
-            } catch (error) {
-                const err = error as Error;
-                log.error('MCP execute-code tool error', { language, error: err.message });
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: `Error executing code: ${err.message}`,
                         },
                     ],
                     isError: true,

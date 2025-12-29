@@ -3,11 +3,11 @@ import { exec } from 'node:child_process';
 import crypto from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { promisify } from 'node:util';
 import type { Readable } from 'node:stream';
+import { promisify } from 'node:util';
 
-import archiver from 'archiver';
 import { log } from 'apify';
+import archiver from 'archiver';
 import mime from 'mime-types';
 
 import { JS_TS_CODE_DIR, PYTHON_CODE_DIR, SANDBOX_DIR } from './consts.js';
@@ -45,7 +45,7 @@ const resolveAndValidatePath = async (filePath: string): Promise<string> => {
     let realPath: string;
     try {
         realPath = await fs.realpath(resolvedPath);
-    } catch (error) {
+    } catch {
         // If file doesn't exist yet, use normalized path
         realPath = path.normalize(resolvedPath);
     }
@@ -234,13 +234,14 @@ export const executeCode = async (
     code: string,
     language: 'js' | 'ts' | 'py',
     timeout?: number,
+    cwd?: string,
 ): Promise<{
     stdout: string;
     stderr: string;
     exitCode: number;
     language: string;
 }> => {
-    log.debug('executeCode called', { language, codeLength: code.length, timeout });
+    log.debug('executeCode called', { language, codeLength: code.length, timeout, cwd });
     const tempFiles: string[] = [];
 
     try {
@@ -291,6 +292,24 @@ export const executeCode = async (
             // language === 'py'
             command = `python ${tempFile}`;
             executionDir = PYTHON_CODE_DIR;
+        }
+
+        // If custom cwd is provided, use it (after validation)
+        if (cwd) {
+            const resolvedCwd = path.isAbsolute(cwd) ? cwd : path.join(SANDBOX_DIR, cwd);
+            const normalizedCwd = path.normalize(resolvedCwd);
+
+            // Validate cwd is within sandbox
+            if (!normalizedCwd.startsWith(SANDBOX_DIR)) {
+                return {
+                    stdout: '',
+                    stderr: `Access denied: Working directory ${cwd} is outside of sandbox`,
+                    exitCode: 1,
+                    language,
+                };
+            }
+
+            executionDir = normalizedCwd;
         }
 
         const execOptions: { cwd?: string; timeout?: number; env?: NodeJS.ProcessEnv } = {

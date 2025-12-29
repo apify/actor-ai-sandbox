@@ -119,10 +119,10 @@
             <div class="code-block-wrapper">
                 <button class="copy-btn" onclick="copyCode(this)">Copy</button>
                 <pre class="code-block">const baseUrl = '<%= serverUrl %>';
-const res = await fetch(`${baseUrl}/execute-code`, {
+const res = await fetch(`${baseUrl}/exec`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ code: 'print("hello")', language: 'py', timeout: 10_000 }),
+    body: JSON.stringify({ command: 'print("hello")', language: 'py', timeoutSecs: 10 }),
 });
 const json = await res.json();
 console.log(json);</pre>
@@ -134,8 +134,8 @@ console.log(json);</pre>
                 <pre class="code-block">import requests
 
 base_url = "<%= serverUrl %>"
-payload = {"code": "print('hello')", "language": "py", "timeout": 10_000}
-resp = requests.post(f"{base_url}/execute-code", json=payload, timeout=15)
+payload = {"command": "print('hello')", "language": "py", "timeoutSecs": 10}
+resp = requests.post(f"{base_url}/exec", json=payload, timeout=15)
 resp.raise_for_status()
 print(resp.json())</pre>
             </div>
@@ -144,10 +144,9 @@ print(resp.json())</pre>
         <section class="card">
             <h3>Core REST endpoints</h3>
             <ul class="list">
-                <li><code>POST <%= serverUrl %>/exec</code> – run shell commands
-                    <br><span style="color: #64748b; font-size: 13px;">Body: { command: "ls -la", cwd: "/sandbox", timeout: 5000 }</span></li>
-                <li><code>POST <%= serverUrl %>/execute-code</code> – run JS/TS/Python
-                    <br><span style="color: #64748b; font-size: 13px;">Body: { code: "print('hello')", language: "py", timeout: 10000 }</span></li>
+                <li><code>POST <%= serverUrl %>/exec</code> – run shell commands or code
+                    <br><span style="color: #64748b; font-size: 13px;">Shell: { command: "ls -la", cwd: "/sandbox", timeoutSecs: 5 }</span>
+                    <br><span style="color: #64748b; font-size: 13px;">Code: { command: "print('hello')", language: "py", timeoutSecs: 10 }</span></li>
                 <li><code>POST <%= serverUrl %>/read-file</code> – read a file
                     <br><span style="color: #64748b; font-size: 13px;">Body: { path: "/sandbox/config.json" }</span></li>
                 <li><code>POST <%= serverUrl %>/write-file</code> – write a file
