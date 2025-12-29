@@ -44,6 +44,22 @@
             background: #0f172a; color: #e2e8f0; padding: 6px 8px; border-radius: 6px;
             font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; display: inline-block; width: 100%; overflow-x: auto;
         }
+        .code-block-wrapper { position: relative; margin-top: 8px; }
+        .code-block { 
+            background: #0f172a; color: #e2e8f0; padding: 14px 16px; border-radius: 8px;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 13px; 
+            overflow-x: auto; white-space: pre; line-height: 1.5;
+        }
+        .copy-btn {
+            position: absolute; top: 8px; right: 8px; background: #334155; color: #e2e8f0;
+            border: none; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;
+            cursor: pointer; transition: all 0.2s;
+        }
+        .copy-btn:hover { background: #475569; }
+        .copy-btn:active { background: #22c55e; color: #0f172a; }
+        .copy-btn.copied { background: #22c55e; color: #0f172a; }
+        .example-label { font-weight: 600; color: #475569; margin-top: 16px; margin-bottom: 4px; }
+        .example-label:first-child { margin-top: 0; }
         @media (max-width: 640px) {
             body { padding: 20px; }
             .hero { flex-direction: column; align-items: flex-start; }
@@ -89,6 +105,14 @@
         </section>
 
         <section class="card">
+            <h3>Connect with Claude Code (MCP)</h3>
+            <div class="code-block-wrapper">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <pre class="code-block">claude mcp add --transport http sandbox <%= serverUrl %>/mcp</pre>
+            </div>
+        </section>
+
+        <section class="card">
             <h3>REST endpoints</h3>
             <ul class="list">
                 <li><code>POST <%= serverUrl %>/exec</code> – run shell commands</li>
@@ -98,6 +122,55 @@
                 <li><code>POST <%= serverUrl %>/list-files</code> – list a directory</li>
             </ul>
         </section>
+
+        <section class="card">
+            <h3>Code examples</h3>
+            
+            <p class="example-label">Call the API (TypeScript/Node)</p>
+            <div class="code-block-wrapper">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <pre class="code-block">const baseUrl = '<%= serverUrl %>';
+const res = await fetch(`${baseUrl}/execute-code`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ code: 'print("hello")', language: 'py', timeout: 10_000 }),
+});
+const json = await res.json();
+console.log(json);</pre>
+            </div>
+
+            <p class="example-label">Call the API (Python)</p>
+            <div class="code-block-wrapper">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <pre class="code-block">import requests
+
+base_url = "<%= serverUrl %>"
+payload = {"code": "print('hello')", "language": "py", "timeout": 10_000}
+resp = requests.post(f"{base_url}/execute-code", json=payload, timeout=15)
+resp.raise_for_status()
+print(resp.json())</pre>
+            </div>
+        </section>
     </main>
+
+    <script>
+        function copyCode(button) {
+            const codeBlock = button.nextElementSibling;
+            const code = codeBlock.textContent;
+            
+            navigator.clipboard.writeText(code).then(() => {
+                const originalText = button.textContent;
+                button.textContent = 'Copied!';
+                button.classList.add('copied');
+                
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.classList.remove('copied');
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+            });
+        }
+    </script>
 </body>
 </html>
