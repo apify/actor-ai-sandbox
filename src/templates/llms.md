@@ -146,3 +146,8 @@ All `/exec` requests return:
 - JavaScript/TypeScript: `/sandbox/js-ts` (default)
 - Python: `/sandbox/py` (default)
 - Override with `cwd` parameter (must be within `/sandbox`)
+
+## Configuration
+
+- **Idle Timeout**: The container automatically shuts down after inactivity (default 10m).
+- **Execution Timeout**: Recommended to set to 0 (infinite) on the platform; use the `idleTimeoutSeconds` input to control lifecycle.

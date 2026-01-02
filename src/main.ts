@@ -10,6 +10,7 @@ import httpProxy from 'http-proxy';
 
 import { executeInitScript, setupExecutionEnvironment } from './environment.js';
 import { createMcpServer } from './mcp.js';
+import { SANDBOX_DIR } from './consts.js';
 import {
     appendFile,
     createDirectory,
@@ -31,6 +32,7 @@ import type { ActorInput } from './types.js';
 // Track initialization state
 let initializationComplete = false;
 let initializationError: string | null = null;
+let lastActivityAt = Date.now();
 
 // Check if running in local mode
 const isLocalMode = process.env.MODE === 'local';
@@ -92,10 +94,22 @@ if (input?.initScript && input.initScript.trim().length > 0) {
 
 // Mark initialization as complete
 initializationComplete = true;
+lastActivityAt = Date.now();
 log.info('Actor startup complete - ready for requests');
 
 // Create Express app
 const app = express();
+
+// Activity tracking middleware
+app.use((req, _res, next) => {
+    const isHealth = req.path === '/health';
+    const isProbe = !!req.headers['x-apify-container-server-readiness-probe'];
+
+    if (!isHealth && !isProbe) {
+        lastActivityAt = Date.now();
+    }
+    next();
+});
 
 // Create HTTP server for WebSocket support
 const server = createServer(app);
@@ -754,7 +768,8 @@ const spawnTtyd = () => {
 
     // Run ttyd without base path internally
     const ttyd = spawn('ttyd', ['-p', shellPort.toString(), '-W', 'bash'], {
-        stdio: 'inherit',
+        stdio: 'ignore',
+        cwd: SANDBOX_DIR,
     });
 
     ttyd.on('error', (err) => {
@@ -809,6 +824,12 @@ server.on('upgrade', (req, socket, head) => {
     if (req.url?.startsWith('/shell')) {
         req.url = req.url.replace(/^\/shell/, '') || '/';
         log.info('Proxying WebSocket upgrade', { url: req.url });
+
+        // Track activity on WebSocket data
+        socket.on('data', () => {
+            lastActivityAt = Date.now();
+        });
+
         wsProxy.ws(req, socket as any, head);
     }
 });
@@ -883,4 +904,18 @@ server.listen(port, () => {
     console.log(`       Get file/directory metadata in headers\n`);
 
     console.log('=====================================\n');
+
+    // Start idle timeout check
+    const idleTimeoutSecs = input?.idleTimeoutSeconds ?? 600;
+    if (idleTimeoutSecs > 0) {
+        log.info(`Idle timeout monitor started (${idleTimeoutSecs}s)`);
+        setInterval(async () => {
+            const idleTimeMs = Date.now() - lastActivityAt;
+            if (idleTimeMs > idleTimeoutSecs * 1000) {
+                const message = `Actor shut down after ${Math.floor(idleTimeoutSecs / 60)} minutes of inactivity.`;
+                log.warning(message);
+                await Actor.exit({ statusMessage: message });
+            }
+        }, 30000); // Check every 30 seconds
+    }
 });

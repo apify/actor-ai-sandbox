@@ -36,8 +36,17 @@
                 "description": "Optional bash script to customize the sandbox environment. Runs after library installation in /sandbox directory. Use for installing system packages, creating directories, or other setup tasks.",
                 "editor": "textarea",
                 "prefill": "apt-get update\n# apt-get install -y curl\n# mkdir /sandbox/data"
+            },
+            "idleTimeoutSeconds": {
+                "title": "Idle Timeout Seconds",
+                "type": "integer",
+                "description": "The container will automatically shut down after this period of inactivity (no requests, no shell interaction). Set to 0 to disable. Recommended to set Actor execution timeout to 0 (infinite) when using this.",
+                "default": 600,
+                "editor": "number",
+                "prefill": 600
             }
         },
+
         "required": []
     },
     "output": {
