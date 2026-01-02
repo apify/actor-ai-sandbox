@@ -4,7 +4,7 @@ Containerized sandbox environment for AI coding operations. Connect through REST
 
 ## Quick Links
 
-- **Shell Terminal**: <%= serverUrl %>/shell
+- **Shell Terminal**: <%= serverUrl %>/shell/
 - **Health Check**: <%= serverUrl %>/health
 - **MCP Endpoint**: <%= serverUrl %>/mcp
 

@@ -1,9 +1,12 @@
-import { createServer } from 'node:http';
+import { spawn } from 'node:child_process';
+import http, { createServer } from 'node:http';
+import { format } from 'node:util';
 
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { Actor, log } from 'apify';
 import type { Request, Response } from 'express';
 import express from 'express';
+import httpProxy from 'http-proxy';
 
 import { executeInitScript, setupExecutionEnvironment } from './environment.js';
 import { createMcpServer } from './mcp.js';
@@ -22,7 +25,6 @@ import {
     writeFile,
     writeFileBinary,
 } from './operations.js';
-import { getShellHTML, initializeShellServer } from './shell.js';
 import { getLandingPageHTML, getLLMsMarkdown } from './templates/landing.js';
 import type { ActorInput } from './types.js';
 
@@ -504,11 +506,6 @@ app.delete('/fs/*', async (req: Request, res: Response) => {
 // Middleware for JSON parsing (applied to routes below)
 app.use(express.json({ limit: '50mb' }));
 
-// Serve xterm.js assets from node_modules for shell terminal
-app.use('/xterm', express.static('./node_modules/@xterm/xterm/css'));
-app.use('/xterm', express.static('./node_modules/@xterm/xterm/lib'));
-app.use('/xterm-addon', express.static('./node_modules/@xterm/addon-fit/lib'));
-
 // Landing page endpoint
 app.get('/', (_req: Request, res: Response) => {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -545,12 +542,6 @@ app.get('/health', (_req: Request, res: Response) => {
     }
 
     res.json({ status: 'healthy' });
-});
-
-// Shell terminal endpoint
-app.get('/shell', (_req: Request, res: Response) => {
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.send(getShellHTML());
 });
 
 // MCP endpoint using proper StreamableHTTPServerTransport
@@ -752,8 +743,75 @@ app.post('/list-files', async (req: Request, res: Response) => {
     }
 });
 
-// Initialize shell WebSocket server
-initializeShellServer(server);
+// ============================================================================
+// Shell (ttyd) Implementation
+// ============================================================================
+const shellPort = 7681;
+
+// Spawn ttyd process
+const spawnTtyd = () => {
+    log.info('Spawning ttyd process...', { port: shellPort });
+
+    // Run ttyd without base path internally
+    const ttyd = spawn('ttyd', ['-p', shellPort.toString(), '-W', 'bash'], {
+        stdio: 'inherit',
+    });
+
+    ttyd.on('error', (err) => {
+        log.error('Failed to start ttyd', { error: err.message });
+    });
+
+    ttyd.on('exit', (code) => {
+        log.warning('ttyd process exited', { code });
+        setTimeout(spawnTtyd, 5000);
+    });
+};
+
+if (!isLocalMode) {
+    spawnTtyd();
+}
+
+// Manual HTTP Proxy for ttyd
+app.all('/shell*', (req, res) => {
+    const path = req.url.replace(/^\/shell/, '') || '/';
+    const options = {
+        hostname: '127.0.0.1',
+        port: shellPort,
+        path: path,
+        method: req.method,
+        headers: req.headers,
+    };
+
+    const proxyReq = http.request(options, (proxyRes) => {
+        if (proxyRes.statusCode) {
+            res.writeHead(proxyRes.statusCode, proxyRes.headers);
+        }
+        proxyRes.pipe(res);
+    });
+
+    proxyReq.on('error', (err) => {
+        log.error('Manual proxy error', { error: err.message });
+        if (!res.headersSent) {
+            res.status(500).send('Shell Proxy Error');
+        }
+    });
+
+    req.pipe(proxyReq);
+});
+
+// Manual WebSocket Proxy for ttyd
+const wsProxy = httpProxy.createProxyServer({
+    target: `http://127.0.0.1:${shellPort}`,
+    ws: true,
+});
+
+server.on('upgrade', (req, socket, head) => {
+    if (req.url?.startsWith('/shell')) {
+        req.url = req.url.replace(/^\/shell/, '') || '/';
+        log.info('Proxying WebSocket upgrade', { url: req.url });
+        wsProxy.ws(req, socket as any, head);
+    }
+});
 
 // Start server
 server.listen(port, () => {
@@ -768,6 +826,10 @@ server.listen(port, () => {
     console.log('🏠 Landing page (open first):');
     console.log(`   GET ${serverUrl}/`);
     console.log('       Connection details, quick links, and endpoint URLs\n');
+
+    // Shell terminal endpoint
+    console.log(`   GET ${serverUrl}/shell/`);
+    console.log(`       Interactive shell terminal\n`);
 
     // MCP Server URL
     console.log('📡 MCP Server Endpoint:');
@@ -819,10 +881,6 @@ server.listen(port, () => {
 
     console.log(`   HEAD ${serverUrl}/fs/{path}`);
     console.log(`       Get file/directory metadata in headers\n`);
-
-    // Shell terminal endpoint
-    console.log(`   GET ${serverUrl}/shell`);
-    console.log(`       Interactive shell terminal\n`);
 
     console.log('=====================================\n');
 });

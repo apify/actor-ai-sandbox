@@ -74,9 +74,9 @@ Available endpoints (all URLs come from the run logs/landing page):
     - Health check endpoint
     - Returns (200/503): `{ status: 'healthy' | 'initializing' | 'unhealthy'; message?: string }`
 
-- `GET /shell`
+- `GET /shell/`
     - Interactive browser terminal
-    - Returns: HTML page with embedded terminal (WebSocket at `/shell/ws`)
+    - Returns: Interactive terminal powered by ttyd
 
 - `GET /llms.txt`
     - Markdown documentation for LLMs (same usage info as landing page)
