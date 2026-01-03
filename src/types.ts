@@ -1,5 +1,5 @@
 /**
- * Type definitions for the AI Sandbox Actor
+ * Type definitions for the Apify AI Sandbox Actor
  */
 
 export interface ActorInput {

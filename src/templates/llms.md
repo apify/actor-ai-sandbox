@@ -1,4 +1,4 @@
-# AI Sandbox
+# Apify AI Sandbox
 
 Containerized sandbox environment for AI coding operations. Connect through REST, MCP, or the interactive shell.
 

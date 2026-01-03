@@ -1,8 +1,8 @@
 {
     "actorSpecification": 1,
-    "name": "ai-sandbox",
-    "title": "AI Sandbox",
-    "description": "AI Sandbox Actor that allows execution of code and operations in a containerized environment for AI coding agents",
+    "name": "apify-ai-sandbox",
+    "title": "Apify AI Sandbox",
+    "description": "Apify AI Sandbox Actor that allows execution of code and operations in a containerized environment for AI coding agents",
     "version": "0.0",
     "buildTag": "latest",
     "usesStandbyMode": false,
@@ -52,7 +52,7 @@
     "output": {
         "actorOutputSchemaVersion": 1,
 
-        "title": "AI Sandbox",
+        "title": "Apify AI Sandbox",
         "description": "",
         "type": "object",
 

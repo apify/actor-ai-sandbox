@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { writeFileSync, chmodSync, mkdirSync } from 'node:fs';
 import http, { createServer } from 'node:http';
 import { format } from 'node:util';
 
@@ -27,6 +28,7 @@ import {
     writeFileBinary,
 } from './operations.js';
 import { getLandingPageHTML, getLLMsMarkdown } from './templates/landing.js';
+import { SANDBOX_BASHRC, WELCOME_SCRIPT } from './templates/shell.js';
 import type { ActorInput } from './types.js';
 
 // Track initialization state
@@ -90,6 +92,20 @@ if (input?.initScript && input.initScript.trim().length > 0) {
     }
 } else {
     log.debug('No init script provided or init script is empty');
+}
+
+// Setup shell environment files
+if (!isLocalMode) {
+    try {
+        log.info('Writing shell environment files...');
+        mkdirSync('/app', { recursive: true });
+        writeFileSync('/app/welcome.sh', WELCOME_SCRIPT);
+        chmodSync('/app/welcome.sh', 0o755);
+        writeFileSync('/app/sandbox_bashrc', SANDBOX_BASHRC);
+        log.info('Shell environment files written successfully');
+    } catch (err) {
+        log.error('Failed to write shell environment files', { error: (err as Error).message });
+    }
 }
 
 // Mark initialization as complete
@@ -766,8 +782,8 @@ const shellPort = 7681;
 const spawnTtyd = () => {
     log.info('Spawning ttyd process...', { port: shellPort });
 
-    // Run ttyd without base path internally
-    const ttyd = spawn('ttyd', ['-p', shellPort.toString(), '-W', 'bash'], {
+    // Run ttyd with custom bashrc for better UX and environment alignment
+    const ttyd = spawn('ttyd', ['-p', shellPort.toString(), '-W', 'bash', '--rcfile', '/app/sandbox_bashrc'], {
         stdio: 'ignore',
         cwd: SANDBOX_DIR,
     });
@@ -836,12 +852,12 @@ server.on('upgrade', (req, socket, head) => {
 
 // Start server
 server.listen(port, () => {
-    log.info(`AI Sandbox listening on port ${port}`);
+    log.info(`Apify AI Sandbox listening on port ${port}`);
     log.info(`Server URL: ${serverUrl}`);
 
     // Print startup information
     console.log('\n=====================================');
-    console.log('🚀 AI Sandbox Started');
+    console.log('🚀 Apify AI Sandbox Started');
     console.log('=====================================\n');
 
     console.log('🏠 Landing page (open first):');

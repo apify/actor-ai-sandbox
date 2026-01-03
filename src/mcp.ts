@@ -33,7 +33,7 @@ const normalizeLanguage = (lang?: string): 'js' | 'ts' | 'py' | 'shell' | null =
 export const createMcpServer = () => {
     const server = new McpServer(
         {
-            name: 'sandbox',
+            name: 'apify-ai-sandbox',
             version: '1.0.0',
         },
         {

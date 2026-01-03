@@ -1,8 +1,8 @@
 {
-    "name": "sandbox",
+    "name": "apify-ai-sandbox",
     "version": "0.0.1",
     "type": "module",
-    "description": "This is an example of an Apify Actor that uses Standby mode.",
+    "description": "Apify AI Sandbox for running AI coding operations in a containerized environment.",
     "engines": {
         "node": ">=20.0.0"
     },
