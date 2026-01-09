@@ -44,29 +44,6 @@ Run shell commands or execute code snippets.
 
 **Supported languages:** `js`, `javascript`, `ts`, `typescript`, `py`, `python`, `bash`, `sh` (or omit for shell)
 
-### File Operations
-
-**POST** `<%= serverUrl %>/read-file`
-
-```json
-{ "path": "/sandbox/config.json" }
-```
-
-**POST** `<%= serverUrl %>/write-file`
-
-```json
-{
-    "path": "/sandbox/output.txt",
-    "content": "data"
-}
-```
-
-**POST** `<%= serverUrl %>/list-files`
-
-```json
-{ "path": "/sandbox" }
-```
-
 ## Filesystem Endpoints (RESTful)
 
 Direct file operations using HTTP methods. All paths relative to `/sandbox`.

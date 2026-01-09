@@ -1,5 +1,11 @@
 /**
- * Shell Welcome Script Template
+ * Bash Scripts for Sandbox Environment
+ */
+
+/* eslint-disable no-useless-escape */
+
+/**
+ * Welcome Script Template - Runs when opening the shell
  */
 export const WELCOME_SCRIPT = `#!/bin/bash
 

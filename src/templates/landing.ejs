@@ -152,17 +152,11 @@ print(resp.json())</pre>
                 <li><code>POST <%= serverUrl %>/exec</code> – run shell commands or code
                     <br><span style="color: #64748b; font-size: 13px;">Shell: { command: "ls -la", cwd: "/sandbox", timeoutSecs: 5 }</span>
                     <br><span style="color: #64748b; font-size: 13px;">Code: { command: "print('hello')", language: "py", timeoutSecs: 10 }</span></li>
-                <li><code>POST <%= serverUrl %>/read-file</code> – read a file
-                    <br><span style="color: #64748b; font-size: 13px;">Body: { path: "/sandbox/config.json" }</span></li>
-                <li><code>POST <%= serverUrl %>/write-file</code> – write a file
-                    <br><span style="color: #64748b; font-size: 13px;">Body: { path: "/sandbox/output.txt", content: "data" }</span></li>
-                <li><code>POST <%= serverUrl %>/list-files</code> – list a directory
-                    <br><span style="color: #64748b; font-size: 13px;">Body: { path: "/sandbox" }</span></li>
             </ul>
         </section>
 
         <section class="card">
-            <h3>Filesystem endpoints</h3>
+            <h3>Filesystem endpoints (RESTful)</h3>
             <p class="muted" style="margin-bottom: 12px;">Direct file operations using RESTful HTTP methods. All paths relative to /sandbox.</p>
             <ul class="list">
                     <li><code>GET <%= serverUrl %>/fs/{path}</code> – read file or list directory

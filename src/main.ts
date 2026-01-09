@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
-import { writeFileSync, chmodSync, mkdirSync } from 'node:fs';
+import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
 import http, { createServer } from 'node:http';
-import { format } from 'node:util';
+import type { Duplex } from 'node:stream';
 
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { Actor, log } from 'apify';
@@ -9,22 +9,19 @@ import type { Request, Response } from 'express';
 import express from 'express';
 import httpProxy from 'http-proxy';
 
+import { SANDBOX_DIR } from './consts.js';
 import { executeInitScript, setupExecutionEnvironment } from './environment.js';
 import { createMcpServer } from './mcp.js';
-import { SANDBOX_DIR } from './consts.js';
 import {
     appendFile,
     createDirectory,
     createZipArchive,
     deleteFileOrDirectory,
     executeCode,
-    listFiles,
     listFilesDetailed,
-    readFile,
     readFileBinary,
     runCommand,
     statPath,
-    writeFile,
     writeFileBinary,
 } from './operations.js';
 import { getLandingPageHTML, getLLMsMarkdown } from './templates/landing.js';
@@ -671,108 +668,6 @@ app.post('/exec', async (req: Request, res: Response) => {
     }
 });
 
-// Write file
-app.post('/write-file', async (req: Request, res: Response) => {
-    try {
-        const { path: filePath, content, mode } = req.body;
-
-        log.info('REST /write-file request received', { path: filePath, contentLength: content?.length, mode });
-
-        if (!filePath) {
-            log.warning('REST /write-file: file path is required');
-            res.status(400).json({
-                error: 'File path is required',
-            });
-            return;
-        }
-
-        if (content === undefined) {
-            log.warning('REST /write-file: content is required');
-            res.status(400).json({
-                error: 'Content is required',
-            });
-            return;
-        }
-
-        const result = await writeFile(filePath, content, mode);
-
-        if (!result.success) {
-            log.warning('REST /write-file failed', { path: filePath, error: result.error });
-            res.status(500).json(result);
-            return;
-        }
-
-        log.info('REST /write-file completed successfully', { path: filePath });
-        res.json(result);
-    } catch (error) {
-        log.error('REST /write-file error', { error });
-        const err = error as Error;
-        res.status(500).json({
-            error: err.message,
-        });
-    }
-});
-
-// Read file
-app.post('/read-file', async (req: Request, res: Response) => {
-    try {
-        const { path: filePath } = req.body;
-
-        log.info('REST /read-file request received', { path: filePath });
-
-        if (!filePath) {
-            log.warning('REST /read-file: file path is required');
-            res.status(400).json({
-                error: 'File path is required',
-            });
-            return;
-        }
-
-        const result = await readFile(filePath);
-
-        if (result.error) {
-            log.warning('REST /read-file failed', { path: filePath, error: result.error });
-            res.status(404).json(result);
-            return;
-        }
-
-        log.info('REST /read-file completed successfully', { path: filePath, contentLength: result.content?.length });
-        res.json(result);
-    } catch (error) {
-        log.error('REST /read-file error', { error });
-        const err = error as Error;
-        res.status(404).json({
-            error: err.message,
-        });
-    }
-});
-
-// List files in directory
-app.post('/list-files', async (req: Request, res: Response) => {
-    try {
-        const { path: dirPath } = req.body;
-
-        log.info('REST /list-files request received', { path: dirPath });
-
-        const result = await listFiles(dirPath);
-
-        if (result.error) {
-            log.warning('REST /list-files failed', { path: dirPath, error: result.error });
-            res.status(500).json(result);
-            return;
-        }
-
-        log.info('REST /list-files completed successfully', { path: result.path, fileCount: result.files.length });
-        res.json(result);
-    } catch (error) {
-        log.error('REST /list-files error', { error });
-        const err = error as Error;
-        res.status(500).json({
-            error: err.message,
-        });
-    }
-});
-
 // ============================================================================
 // Shell (ttyd) Implementation
 // ============================================================================
@@ -808,7 +703,7 @@ app.all('/shell*', (req, res) => {
     const options = {
         hostname: '127.0.0.1',
         port: shellPort,
-        path: path,
+        path,
         method: req.method,
         headers: req.headers,
     };
@@ -846,7 +741,7 @@ server.on('upgrade', (req, socket, head) => {
             lastActivityAt = Date.now();
         });
 
-        wsProxy.ws(req, socket as any, head);
+        wsProxy.ws(req, socket as Duplex, head);
     }
 });
 
@@ -878,18 +773,6 @@ server.listen(port, () => {
     console.log(`       Execute shell commands or code (JavaScript, TypeScript, Python)`);
     console.log(`       Body: { command: string, language?: string, cwd?: string, timeoutSecs?: number }`);
     console.log(`       Languages: js, javascript, ts, typescript, py, python, bash, sh (omit for shell)\n`);
-
-    console.log(`   POST ${serverUrl}/read-file`);
-    console.log(`       Read file contents`);
-    console.log(`       Body: { path: string }\n`);
-
-    console.log(`   POST ${serverUrl}/write-file`);
-    console.log(`       Write file contents`);
-    console.log(`       Body: { path: string, content: string, mode?: number }\n`);
-
-    console.log(`   POST ${serverUrl}/list-files`);
-    console.log(`       List directory contents`);
-    console.log(`       Body: { path?: string }\n`);
 
     console.log(`   GET ${serverUrl}/health`);
     console.log(`       Health check\n`);
