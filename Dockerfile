@@ -1,12 +1,22 @@
-# Stage 1: Builder - Compile TypeScript with Node.js
+# Stage 1: Builder - Compile TypeScript and ttyd
 FROM node:24-trixie-slim AS builder
 
-# Install build tools and Python for node-gyp (required by node-pty)
+# Install build tools and dependencies for ttyd
 RUN apt-get update && apt-get install -y \
     build-essential \
+    cmake \
+    git \
+    libjson-c-dev \
+    libwebsockets-dev \
     python3 \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+
+# Build ttyd from source
+RUN git clone --depth 1 https://github.com/tsl0922/ttyd.git /tmp/ttyd \
+    && cd /tmp/ttyd && mkdir build && cd build \
+    && cmake .. \
+    && make && make install
 
 # Set working directory
 WORKDIR /build
@@ -33,6 +43,9 @@ RUN apt-get update && apt-get install -y \
     python3-venv \
     python3-pip \
     ca-certificates \
+    libjson-c-dev \
+    libwebsockets-dev \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
 # Install tsx globally for TypeScript execution in execute-code endpoint
@@ -46,6 +59,9 @@ WORKDIR /app
 
 # Copy compiled dist folder from builder
 COPY --from=builder /build/dist /app/dist
+
+# Copy ttyd binary from builder
+COPY --from=builder /usr/local/bin/ttyd /usr/local/bin/ttyd
 
 # Copy package.json and production node_modules from builder
 COPY --from=builder /build/package.json /app/package.json

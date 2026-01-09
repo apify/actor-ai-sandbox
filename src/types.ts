@@ -1,5 +1,5 @@
 /**
- * Type definitions for the Sandbox Actor
+ * Type definitions for the Apify AI Sandbox Actor
  */
 
 export interface ActorInput {
@@ -22,4 +22,11 @@ export interface ActorInput {
      * Runs after dependency installation in /sandbox directory
      */
     initScript?: string;
+
+    /**
+     * Graceful shutdown timeout in seconds if no activity is detected.
+     * Activity includes HTTP requests and shell interaction.
+     * @default 600 (10 minutes)
+     */
+    idleTimeoutSeconds?: number;
 }

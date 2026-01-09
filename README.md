@@ -1,4 +1,4 @@
-# Apify code sandbox
+# Apify AI Sandbox
 
 Isolated sandbox for running AI coding operations in a containerized environment. 🚀
 
@@ -10,20 +10,25 @@ Isolated sandbox for running AI coding operations in a containerized environment
 - **🖥️ Interactive debugging:** Access the sandbox via browser-based shell terminal for real-time exploration and troubleshooting
 - **🔗 Apify Actor orchestration:** Agents can access the limited permissions Apify token (available as `APIFY_TOKEN` env var) to run other [limited permissions Actors](https://docs.apify.com/platform/actors/development/permissions), process or analyze their output, and build complex data pipelines by combining results from multiple Actors
 
-## How to run
+## Quickstart
 
 ### Start the Actor
 
 1. Run it on the Apify platform through the [Console](https://console.apify.com/)
 2. Check the Actor run log console for connection details (host, port, MCP endpoint URL)
+3. Open the landing page link from the run logs for connection details, quick links (shell + health), and endpoint URLs for the current run.
 
-### Connect to the sandbox
+## Ways to connect
 
-Once the Actor is running, you can interact with it in three ways:
+Start the Actor (see Quickstart above), then choose how to interact:
 
-#### MCP Client
+- MCP client: Agent-driven access to run code or develop with LLM tooling.
+- REST API: Endpoints to run code or shell commands.
+- Interactive shell: Browser terminal for manual exploration.
 
-Use a Model Context Protocol (MCP) client to interact with this sandbox. See [modelcontextprotocol.io/clients](https://modelcontextprotocol.io/clients)
+### MCP Client
+
+Use a Model Context Protocol (MCP) client to interact with this sandbox. See [modelcontextprotocol.io/clients](https://modelcontextprotocol.io/clients).
 
 **Connect with Claude code:**
 
@@ -31,25 +36,265 @@ Use a Model Context Protocol (MCP) client to interact with this sandbox. See [mo
 claude mcp add --transport http sandbox https://YOUR-RUN-ID.runs.apify.net/mcp
 ```
 
-Replace `YOUR-RUN-ID` with the actual run ID from your Actor execution (found in the logs).
+Replace `YOUR-RUN-ID` with the run ID from your Actor execution (URL is also in the landing page and logs). Then prompt your agent; it will use the sandbox tools automatically over MCP.
 
-#### REST API
+### REST API
 
-Access the sandbox directly via REST API endpoints. The complete list of available endpoints and their required arguments are documented in the Actor run logs.
+Available endpoints (all URLs come from the run logs/landing page):
 
-**Health Status:** Use the `GET /health` endpoint to check the Actor's readiness:
+#### Core Endpoints
 
-- `status: "initializing"` (HTTP 503) - Actor is still setting up dependencies and running init script
-- `status: "unhealthy"` (HTTP 503) - Init script failed, check logs for details
-- `status: "healthy"` (HTTP 200) - Actor is ready to accept requests
+- `POST /mcp`
+    - Body: JSON-RPC over HTTP per MCP client
+    - Returns: JSON-RPC response
 
-#### Interactive Shell Terminal
+- `POST /exec`
+    - Execute shell commands OR code snippets (JavaScript, TypeScript, Python)
+    - Body: `{ command: string; language?: string; cwd?: string; timeoutSecs?: number }`
+    - Language options: `"js"`, `"javascript"`, `"ts"`, `"typescript"`, `"py"`, `"python"`, `"bash"`, `"sh"` (omit for shell)
+    - Returns (200 on success, 500 on error): `{ stdout: string; stderr: string; exitCode: number; language: string }`
+    - The `language` field in response is always present: `"shell"` for shell commands, `"js"`/`"ts"`/`"py"` for code
 
-Access an interactive shell terminal in your browser at `https://YOUR-RUN-ID.runs.apify.net/shell` (replace with your actual run ID).
+- `POST /read-file`
+    - Read file contents as JSON
+    - Body: `{ path: string }`
+    - Returns (200): `{ content: string }` or (404): `{ error: string }`
+
+- `POST /write-file`
+    - Write file contents from JSON
+    - Body: `{ path: string; content: string; mode?: number }`
+    - Returns (200): `{ success: boolean }` or (500): `{ error: string }`
+
+- `POST /list-files`
+    - List directory contents
+    - Body: `{ path?: string }`
+    - Returns (200): `{ path: string; files: string[] }` or (500): `{ error: string }`
+
+- `GET /health`
+    - Health check endpoint
+    - Returns (200/503): `{ status: 'healthy' | 'initializing' | 'unhealthy'; message?: string }`
+
+- `GET /shell/`
+    - Interactive browser terminal
+    - Returns: Interactive terminal powered by ttyd
+
+- `GET /llms.txt`
+    - Markdown documentation for LLMs (same usage info as landing page)
+    - Returns (200): Plain text Markdown with all endpoint documentation
+
+**Health status:**
+
+- `status: "initializing"` (503) – dependencies/setup still running
+- `status: "unhealthy"` (503) – init script failed; check logs
+- `status: "healthy"` (200) – ready for requests
+
+#### RESTful Filesystem Endpoints
+
+Direct filesystem access using standard HTTP methods. All paths are relative to `/sandbox`.
+
+- `GET /fs/{path}`
+    - **Read file**: Returns raw file bytes with appropriate `Content-Type` header
+    - **List directory**: Returns JSON with directory contents (files and subdirectories with sizes)
+    - Query params:
+        - `?download=1`: Download file as attachment (or directory as ZIP)
+    - Returns (200): File content or directory JSON, (404): Path not found
+
+- `PUT /fs/{path}`
+    - **Write/replace file**: Create or replace file with request body content
+    - Accepts raw bytes or text in request body
+    - Automatically creates parent directories if they don't exist
+    - Returns (200): `{ success: true, path: string, size: number }`
+
+- `POST /fs/{path}?mkdir=1`
+    - **Create directory**: Create directory at specified path (recursive by default)
+    - Returns (201): `{ success: true, path: string, type: "directory" }`
+
+- `POST /fs/{path}?append=1`
+    - **Append to file**: Append request body to existing file (creates file if it doesn't exist)
+    - Returns (200): `{ success: true, path: string, size: number }`
+
+- `DELETE /fs/{path}`
+    - **Delete file or directory**
+    - Query params:
+        - `?recursive=1`: Enable recursive deletion for non-empty directories
+    - Returns (200): `{ success: true, path: string, deleted: true }`, (409): Directory not empty
+
+- `HEAD /fs/{path}`
+    - **Get metadata**: Returns file/directory metadata in response headers
+    - Headers: `Content-Type`, `Content-Length`, `X-File-Type`, `Last-Modified`, `X-Path`
+    - Returns (200): Headers only, (404): Path not found
+
+**Path Resolution**: All `/fs/*` paths are resolved relative to `/sandbox`:
+
+- `/fs/app/main.py` → `/sandbox/app/main.py`
+- `/fs/tmp/test.txt` → `/sandbox/tmp/test.txt`
+
+**Security**: Paths are validated to prevent escaping the `/sandbox` directory. Symlinks are followed but validated to stay within `/sandbox`.
+
+**Filesystem Examples (curl):**
+
+```bash
+# Read a file
+curl https://YOUR-RUN-ID.runs.apify.net/fs/app/config.json
+
+# List directory contents
+curl https://YOUR-RUN-ID.runs.apify.net/fs/app
+
+# Download directory as ZIP
+curl https://YOUR-RUN-ID.runs.apify.net/fs/app?download=1 -o app.zip
+
+# Upload a file
+curl -X PUT https://YOUR-RUN-ID.runs.apify.net/fs/app/config.json \
+  -H "Content-Type: application/json" \
+  -d '{"key": "value"}'
+
+# Create a directory
+curl -X POST https://YOUR-RUN-ID.runs.apify.net/fs/app/data?mkdir=1
+
+# Append to a log file
+curl -X POST https://YOUR-RUN-ID.runs.apify.net/fs/app/log.txt?append=1 \
+  -H "Content-Type: text/plain" \
+  -d "New log entry"
+
+# Delete a file
+curl -X DELETE https://YOUR-RUN-ID.runs.apify.net/fs/app/temp.txt
+
+# Delete directory recursively
+curl -X DELETE https://YOUR-RUN-ID.runs.apify.net/fs/app/temp?recursive=1
+
+# Get file metadata
+curl -I https://YOUR-RUN-ID.runs.apify.net/fs/app/data.json
+```
+
+**Upload/Download Files (TypeScript):**
+
+```ts
+const baseUrl = 'https://YOUR-RUN-ID.runs.apify.net';
+
+// Upload a file
+const uploadResponse = await fetch(`${baseUrl}/fs/app/document.pdf`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/pdf' },
+    body: pdfBuffer, // File buffer or Blob
+});
+
+// Download a file
+const downloadResponse = await fetch(`${baseUrl}/fs/app/document.pdf`);
+const fileBlob = await downloadResponse.blob();
+
+// Download directory as ZIP
+const zipResponse = await fetch(`${baseUrl}/fs/app?download=1`);
+const zipBlob = await zipResponse.blob();
+
+// List directory
+const listResponse = await fetch(`${baseUrl}/fs/app`);
+const { entries } = await listResponse.json();
+console.log(entries); // [{ name, type, size }, ...]
+
+// Create project structure
+await fetch(`${baseUrl}/fs/project/src?mkdir=1`, { method: 'POST' });
+await fetch(`${baseUrl}/fs/project/tests?mkdir=1`, { method: 'POST' });
+await fetch(`${baseUrl}/fs/project/README.md`, {
+    method: 'PUT',
+    body: '# My Project',
+});
+```
+
+**Upload/Download Files (Python):**
+
+```python
+import requests
+
+base_url = "https://YOUR-RUN-ID.runs.apify.net"
+
+# Upload a file
+with open('document.pdf', 'rb') as f:
+    resp = requests.put(f"{base_url}/fs/app/document.pdf",
+                       data=f,
+                       headers={'Content-Type': 'application/pdf'})
+    resp.raise_for_status()
+
+# Download a file
+resp = requests.get(f"{base_url}/fs/app/document.pdf")
+with open('downloaded.pdf', 'wb') as f:
+    f.write(resp.content)
+
+# Download directory as ZIP
+resp = requests.get(f"{base_url}/fs/app?download=1")
+with open('app.zip', 'wb') as f:
+    f.write(resp.content)
+
+# List directory
+resp = requests.get(f"{base_url}/fs/app")
+data = resp.json()
+for entry in data['entries']:
+    print(f"{entry['name']} ({entry['type']}) - {entry.get('size', 'N/A')} bytes")
+
+# Create project structure
+requests.post(f"{base_url}/fs/project/src?mkdir=1")
+requests.post(f"{base_url}/fs/project/tests?mkdir=1")
+requests.put(f"{base_url}/fs/project/README.md", data=b"# My Project")
+```
+
+**Code Execution Examples (TypeScript/Node):**
+
+```ts
+const baseUrl = 'https://YOUR-RUN-ID.runs.apify.net';
+
+// Execute Python code
+const codeRes = await fetch(`${baseUrl}/exec`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+        command: 'print("hello from python")',
+        language: 'py',
+        timeoutSecs: 10,
+    }),
+});
+console.log(await codeRes.json());
+
+// Execute shell command
+const shellRes = await fetch(`${baseUrl}/exec`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+        command: 'ls -la',
+        cwd: '/sandbox',
+        timeoutSecs: 5,
+    }),
+});
+console.log(await shellRes.json());
+```
+
+**Code Execution Examples (Python):**
+
+```python
+import requests
+
+base_url = "https://YOUR-RUN-ID.runs.apify.net"
+
+# Execute Python code
+payload = {"command": "print('hello from python')", "language": "py", "timeoutSecs": 10}
+resp = requests.post(f"{base_url}/exec", json=payload, timeout=15)
+resp.raise_for_status()
+print(resp.json())
+
+# Execute shell command
+payload = {"command": "ls -la", "cwd": "/sandbox", "timeoutSecs": 5}
+resp = requests.post(f"{base_url}/exec", json=payload, timeout=15)
+resp.raise_for_status()
+print(resp.json())
+```
+
+### Interactive Shell Terminal
+
+Open the interactive shell terminal URL from the run logs (also linked on the landing page) to work directly in the browser.
 
 ## Configuration
 
 - **Memory & timeout:** Configure run options to set memory allocation and execution timeout
+- **Idle timeout:** The container automatically shuts down after a period of inactivity (default: 10 minutes). Activity includes HTTP requests and shell interaction. You can adjust this via the `idleTimeoutSeconds` input.
+- **Recommendation:** For cost efficiency, set the standard Actor **Execution Timeout to 0 (infinite)** in the Apify Console. The internal idle logic will then manage the lifecycle based on your usage.
 - **Request timeout:** All requests to the Actor have a 5-minute timeout ceiling. All operations (code execution, commands, file operations) must complete within this time limit. The `timeout` parameter in requests cannot exceed this 5-minute window
 - **Check logs:** Open the Actor run log console to view connection details and operation output
 
