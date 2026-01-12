@@ -6,61 +6,142 @@
     <title>Sandbox | Home</title>
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <style>
-        :root { color-scheme: light dark; }
+        :root { color-scheme: dark; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background: radial-gradient(circle at 18% 20%, #f0f6ff, #e7ecf2 38%, #f8fafc) fixed, #0b1220;
-            color: #0f172a;
+            background: radial-gradient(circle at 18% 20%, #1e293b, #0f172a 38%, #020617) fixed;
+            color: #e2e8f0;
             padding: 32px;
             min-height: 100vh;
         }
-        .page { max-width: 1080px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+        .page { max-width: 1080px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
         .hero {
             display: flex; justify-content: space-between; align-items: center; gap: 12px;
-            padding: 20px 24px; background: #0f172a; color: #e2e8f0; border-radius: 12px;
-            box-shadow: 0 20px 40px rgba(15, 23, 42, 0.35);
+            padding: 20px 24px; background: linear-gradient(135deg, #1e293b, #334155); color: #f1f5f9; border-radius: 12px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(148, 163, 184, 0.1);
         }
         .eyebrow { letter-spacing: 0.08em; text-transform: uppercase; font-size: 12px; color: #94a3b8; }
-        h1 { font-size: 28px; margin-bottom: 6px; }
-        .lead { color: #cbd5e1; }
-        .badge { background: #22c55e; color: #0f172a; padding: 8px 12px; border-radius: 999px; font-weight: 600; white-space: nowrap; }
+        h1 { font-size: 28px; margin-bottom: 6px; color: #f1f5f9; }
+        h2 { font-size: 22px; font-weight: 700; color: #f1f5f9; line-height: 1.4; }
+        h3 { font-size: 18px; font-weight: 700; color: #e2e8f0; line-height: 1.4; }
+        .lead { color: #cbd5e1; line-height: 1.6; }
+        .badge { background: #22c55e; color: #0f172a; padding: 8px 12px; border-radius: 999px; font-weight: 600; white-space: nowrap; box-shadow: 0 4px 12px rgba(34, 197, 94, 0.4); }
         .card {
-            background: rgba(255, 255, 255, 0.9); border: 1px solid #e2e8f0; border-radius: 12px;
-            padding: 18px 20px; box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
-            display: flex; flex-direction: column; gap: 10px; height: 100%;
+            background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 12px;
+            padding: 24px 28px; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+            display: flex; flex-direction: column; gap: 14px; height: 100%;
+            backdrop-filter: blur(10px);
         }
         .card-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
         .actions { display: flex; gap: 10px; flex-wrap: wrap; }
         .button {
-            background: linear-gradient(120deg, #2563eb, #22d3ee); color: #0f172a; padding: 10px 14px;
-            border-radius: 8px; font-weight: 700; text-decoration: none; box-shadow: 0 10px 20px rgba(34, 211, 238, 0.35);
+            background: linear-gradient(120deg, #3b82f6, #06b6d4); color: #fff; padding: 10px 16px;
+            border-radius: 8px; font-weight: 700; text-decoration: none; box-shadow: 0 10px 20px rgba(59, 130, 246, 0.4);
+            transition: all 0.3s ease; display: inline-block;
         }
-        .button.secondary { background: linear-gradient(120deg, #22c55e, #a3e635); box-shadow: 0 10px 20px rgba(34, 197, 94, 0.3); }
-        .button:hover { filter: brightness(1.05); }
-        .muted { color: #475569; margin-top: 8px; }
+        .button.secondary { background: linear-gradient(120deg, #10b981, #84cc16); box-shadow: 0 10px 20px rgba(16, 185, 129, 0.4); }
+        .button:hover { 
+            filter: brightness(1.15); 
+            transform: translateY(-2px); 
+            box-shadow: 0 14px 28px rgba(59, 130, 246, 0.5);
+        }
+        .button.secondary:hover {
+            box-shadow: 0 14px 28px rgba(16, 185, 129, 0.5);
+        }
+        .button:active { 
+            transform: translateY(0px); 
+            box-shadow: 0 6px 12px rgba(59, 130, 246, 0.35);
+        }
+        .muted { color: #94a3b8; line-height: 1.6; }
+        p { line-height: 1.6; color: #cbd5e1; }
         .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; align-items: stretch; }
         .list { list-style: none; display: grid; gap: 8px; margin-top: 12px; }
         code {
-            background: #0f172a; color: #e2e8f0; padding: 6px 8px; border-radius: 6px;
+            background: #0c1220; color: #e2e8f0; padding: 6px 8px; border-radius: 6px;
             font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; display: inline-block; width: 100%; overflow-x: auto;
+            border: 1px solid rgba(148, 163, 184, 0.2);
         }
         .code-block-wrapper { position: relative; margin-top: 8px; }
         .code-block { 
-            background: #0f172a; color: #e2e8f0; padding: 14px 16px; border-radius: 8px;
+            background: #0c1220; color: #e2e8f0; padding: 14px 16px; border-radius: 8px;
             font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 13px; 
             overflow-x: auto; white-space: pre; line-height: 1.5;
+            border: 1px solid rgba(148, 163, 184, 0.2);
         }
         .copy-btn {
-            position: absolute; top: 8px; right: 8px; background: #334155; color: #e2e8f0;
-            border: none; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;
-            cursor: pointer; transition: all 0.2s;
+            position: absolute; top: 50%; right: 10px; transform: translateY(-50%);
+            background: #334155; color: #e2e8f0;
+            border: none; padding: 8px 14px; border-radius: 6px; font-size: 12px; font-weight: 600;
+            cursor: pointer; transition: all 0.3s ease; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
         }
-        .copy-btn:hover { background: #475569; }
-        .copy-btn:active { background: #22c55e; color: #0f172a; }
+        .copy-btn::before {
+            content: attr(data-tooltip);
+            position: absolute; bottom: 100%; right: 0; margin-bottom: 8px;
+            background: #1e293b; color: #e2e8f0; padding: 6px 10px; border-radius: 6px;
+            font-size: 11px; white-space: nowrap; opacity: 0; pointer-events: none;
+            transition: opacity 0.3s ease; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        .copy-btn:hover::before { opacity: 1; }
+        .copy-btn:hover { background: #475569; transform: translateY(-50%) scale(1.05); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); }
+        .copy-btn:active { transform: translateY(-50%) scale(0.98); }
         .copy-btn.copied { background: #22c55e; color: #0f172a; }
-        .example-label { font-weight: 600; color: #475569; margin-top: 16px; margin-bottom: 4px; }
+        .copy-btn.copied::before { content: "Copied!"; opacity: 1; }
+        .example-label { font-weight: 600; color: #cbd5e1; margin-top: 16px; margin-bottom: 4px; }
         .example-label:first-child { margin-top: 0; }
+        
+        /* Syntax highlighting */
+        .hl-command { color: #60a5fa; }
+        .hl-flag { color: #a78bfa; }
+        .hl-url { color: #34d399; }
+        .hl-string { color: #fbbf24; }
+        .hl-number { color: #fb923c; }
+        .hl-key { color: #c084fc; }
+        .hl-curl { color: #22d3ee; font-weight: 600; }
+        .hl-method { color: #f472b6; font-weight: 600; }
+        .hl-comment { color: #64748b; font-style: italic; }
+        
+        /* Collapsible sections */
+        .collapsible-header {
+            display: flex; justify-content: space-between; align-items: center;
+            cursor: pointer; user-select: none;
+        }
+        .collapse-btn {
+            background: rgba(148, 163, 184, 0.2); color: #94a3b8; border: none;
+            padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 600;
+            cursor: pointer; transition: all 0.3s ease;
+        }
+        .collapse-btn:hover { background: rgba(148, 163, 184, 0.3); color: #cbd5e1; }
+        .collapsible-content { 
+            max-height: 2000px; 
+            overflow: hidden; 
+            transition: max-height 0.4s ease, opacity 0.3s ease, margin-top 0.3s ease;
+            opacity: 1;
+            margin-top: 14px;
+        }
+        .collapsible-content.collapsed { 
+            max-height: 0; 
+            opacity: 0;
+            margin-top: 0;
+        }
+        
+        /* Status indicator */
+        .status-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 600;
+            background: rgba(148, 163, 184, 0.2); color: #94a3b8;
+        }
+        .status-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: #64748b; animation: pulse 2s infinite;
+        }
+        .status-badge.healthy .status-dot { background: #22c55e; }
+        .status-badge.unhealthy .status-dot { background: #ef4444; animation: none; }
+        .status-badge.loading .status-dot { background: #eab308; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
         @media (max-width: 640px) {
             body { padding: 20px; }
             .hero { flex-direction: column; align-items: flex-start; }
@@ -75,104 +156,125 @@
             <div>
                 <p class="eyebrow">Apify AI Sandbox</p>
                 <h1>Landing page</h1>
-                <p class="lead">Connect through REST, MCP, or the interactive shell.</p>
+                <p class="lead">Connect through HTTP, MCP, or the interactive shell.</p>
             </div>
-            <% if (isLocalMode) { %>
-                <div class="badge"><%= modeLabel %></div>
-            <% } %>
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                <div class="status-badge loading" id="statusBadge">
+                    <span class="status-dot"></span>
+                    <span id="statusText">Checking...</span>
+                </div>
+                <% if (isLocalMode) { %>
+                    <div class="badge"><%= modeLabel %></div>
+                <% } %>
+            </div>
         </header>
 
         <section class="card">
             <div class="card-header">
-                <h2>Quick links</h2>
+                <h2>🔗 Quick links</h2>
                 <div class="actions">
                     <a class="button" href="/shell/" target="_blank" rel="noopener noreferrer">Open interactive shell</a>
-                    <a class="button secondary" href="/health" target="_blank" rel="noopener noreferrer">Check health</a>
+                    <a class="button secondary" href="/llms.txt" target="_blank" rel="noopener noreferrer">LLMs.txt</a>
                 </div>
             </div>
         </section>
 
-        <section class="grid">
-            <div class="card">
-                <h3>MCP endpoint</h3>
-                <p class="muted">POST</p>
-                <code><%= serverUrl %>/mcp</code>
-            </div>
-            <div class="card">
-                <h3>Health</h3>
-                <p class="muted">GET</p>
-                <code><%= serverUrl %>/health</code>
-            </div>
-            <div class="card">
-                <h3>LLMs.txt</h3>
-                <p class="muted">GET</p>
-                <code><%= serverUrl %>/llms.txt</code>
-            </div>
-        </section>
-
         <section class="card">
-            <h3>Connect with Claude Code (MCP)</h3>
+            <h3>📡 Connect with MCP</h3>
+            <p class="muted">URL</p>
             <div class="code-block-wrapper">
-                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
-                <pre class="code-block">claude mcp add --transport http sandbox <%= serverUrl %>/mcp</pre>
+                <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
+                <pre class="code-block"><%= serverUrl %>/mcp</pre>
             </div>
-        </section>
-
-        <section class="card">
-            <h3>Code examples</h3>
             
-            <p class="example-label">Call the API (TypeScript/Node)</p>
+            <p class="example-label">Claude Code</p>
             <div class="code-block-wrapper">
-                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
-                <pre class="code-block">const baseUrl = '<%= serverUrl %>';
-const res = await fetch(`${baseUrl}/exec`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ command: 'print("hello")', language: 'py', timeoutSecs: 10 }),
-});
-const json = await res.json();
-console.log(json);</pre>
-            </div>
-
-            <p class="example-label">Call the API (Python)</p>
-            <div class="code-block-wrapper">
-                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
-                <pre class="code-block">import requests
-
-base_url = "<%= serverUrl %>"
-payload = {"command": "print('hello')", "language": "py", "timeoutSecs": 10}
-resp = requests.post(f"{base_url}/exec", json=payload, timeout=15)
-resp.raise_for_status()
-print(resp.json())</pre>
+                <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
+                <pre class="code-block"><span class="hl-command">claude</span> <span class="hl-command">mcp</span> <span class="hl-command">add</span> <span class="hl-flag">--transport</span> http sandbox <span class="hl-url"><%= serverUrl %>/mcp</span></pre>
             </div>
         </section>
 
         <section class="card">
-            <h3>Core REST endpoints</h3>
-            <ul class="list">
-                <li><code>POST <%= serverUrl %>/exec</code> – run shell commands or code
-                    <br><span style="color: #64748b; font-size: 13px;">Shell: { command: "ls -la", cwd: "/sandbox", timeoutSecs: 5 }</span>
-                    <br><span style="color: #64748b; font-size: 13px;">Code: { command: "print('hello')", language: "py", timeoutSecs: 10 }</span></li>
-            </ul>
+            <div class="collapsible-header" onclick="toggleCollapse('codeExec')">
+                <h3>⚡ Code execution</h3>
+                <button class="collapse-btn" id="codeExecBtn">Hide</button>
+            </div>
+            
+            <div class="collapsible-content" id="codeExec">
+            <p class="example-label">Run bash command</p>
+            <div class="code-block-wrapper">
+                <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
+                <pre class="code-block"><span class="hl-curl">curl</span> <span class="hl-flag">-X</span> <span class="hl-method">POST</span> <span class="hl-url"><%= serverUrl %>/exec</span> \
+  <span class="hl-flag">-H</span> <span class="hl-string">"Content-Type: application/json"</span> \
+  <span class="hl-flag">-d</span> <span class="hl-string">'{"<span class="hl-key">command</span>": "ls -la", "<span class="hl-key">language</span>": "bash", "<span class="hl-key">cwd</span>": "/sandbox", "<span class="hl-key">timeoutSecs</span>": <span class="hl-number">5</span>}'</span></pre>
+            </div>
+
+            <p class="example-label">Run Python code</p>
+            <div class="code-block-wrapper">
+                <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
+                <pre class="code-block"><span class="hl-curl">curl</span> <span class="hl-flag">-X</span> <span class="hl-method">POST</span> <span class="hl-url"><%= serverUrl %>/exec</span> \
+  <span class="hl-flag">-H</span> <span class="hl-string">"Content-Type: application/json"</span> \
+  <span class="hl-flag">-d</span> <span class="hl-string">'{"<span class="hl-key">command</span>": "print(\"hello\")", "<span class="hl-key">language</span>": "py", "<span class="hl-key">timeoutSecs</span>": <span class="hl-number">10</span>}'</span></pre>
+            </div>
+
+            <p class="example-label">Run TypeScript code</p>
+            <div class="code-block-wrapper">
+                <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
+                <pre class="code-block"><span class="hl-curl">curl</span> <span class="hl-flag">-X</span> <span class="hl-method">POST</span> <span class="hl-url"><%= serverUrl %>/exec</span> \
+  <span class="hl-flag">-H</span> <span class="hl-string">"Content-Type: application/json"</span> \
+  <span class="hl-flag">-d</span> <span class="hl-string">'{"<span class="hl-key">command</span>": "console.log(\"hello\")", "<span class="hl-key">language</span>": "ts", "<span class="hl-key">timeoutSecs</span>": <span class="hl-number">10</span>}'</span></pre>
+            </div>
+            </div>
         </section>
 
         <section class="card">
-            <h3>Filesystem endpoints (RESTful)</h3>
-            <p class="muted" style="margin-bottom: 12px;">Direct file operations using RESTful HTTP methods. All paths relative to /sandbox.</p>
-            <ul class="list">
-                    <li><code>GET <%= serverUrl %>/fs/{path}</code> – read file or list directory
-                        <br><span style="color: #64748b; font-size: 13px;">Example: GET /fs/app/log.txt or GET /fs/app?download=1 (ZIP)</span></li>
-                    <li><code>PUT <%= serverUrl %>/fs/{path}</code> – write/replace file (raw body)
-                        <br><span style="color: #64748b; font-size: 13px;">Example: PUT /fs/config.json with JSON body</span></li>
-                    <li><code>POST <%= serverUrl %>/fs/{path}?mkdir=1</code> – create directory
-                        <br><span style="color: #64748b; font-size: 13px;">Example: POST /fs/project/src?mkdir=1</span></li>
-                    <li><code>POST <%= serverUrl %>/fs/{path}?append=1</code> – append to file (raw body)
-                        <br><span style="color: #64748b; font-size: 13px;">Example: POST /fs/log.txt?append=1 with text body</span></li>
-                    <li><code>DELETE <%= serverUrl %>/fs/{path}</code> – delete file or directory
-                        <br><span style="color: #64748b; font-size: 13px;">Example: DELETE /fs/temp?recursive=1</span></li>
-                    <li><code>HEAD <%= serverUrl %>/fs/{path}</code> – get file metadata (headers only)
-                        <br><span style="color: #64748b; font-size: 13px;">Example: HEAD /fs/data.json (returns Content-Type, Size, etc.)</span></li>
-            </ul>
+            <div class="collapsible-header" onclick="toggleCollapse('filesystem')">
+                <h3>📁 Filesystem endpoints</h3>
+                <button class="collapse-btn" id="filesystemBtn">Hide</button>
+            </div>
+            
+            <div class="collapsible-content" id="filesystem">
+            <p class="muted" style="margin-bottom: 12px;">Direct file operations using HTTP methods. All paths relative to /sandbox.</p>
+            
+            <p class="example-label">Read file or list directory</p>
+            <div class="code-block-wrapper">
+                <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
+                <pre class="code-block"><span class="hl-curl">curl</span> <span class="hl-url"><%= serverUrl %>/fs/app/log.txt</span></pre>
+            </div>
+
+            <p class="example-label">Write or replace file</p>
+            <div class="code-block-wrapper">
+                <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
+                <pre class="code-block"><span class="hl-curl">curl</span> <span class="hl-flag">-X</span> <span class="hl-method">PUT</span> <span class="hl-url"><%= serverUrl %>/fs/config.json</span> \
+  <span class="hl-flag">-H</span> <span class="hl-string">"Content-Type: application/json"</span> \
+  <span class="hl-flag">-d</span> <span class="hl-string">'{"<span class="hl-key">key</span>": "value"}'</span></pre>
+            </div>
+
+            <p class="example-label">Create directory</p>
+            <div class="code-block-wrapper">
+                <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
+                <pre class="code-block"><span class="hl-curl">curl</span> <span class="hl-flag">-X</span> <span class="hl-method">POST</span> <span class="hl-url"><%= serverUrl %>/fs/project/src?mkdir=1</span></pre>
+            </div>
+
+            <p class="example-label">Append to file</p>
+            <div class="code-block-wrapper">
+                <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
+                <pre class="code-block"><span class="hl-curl">curl</span> <span class="hl-flag">-X</span> <span class="hl-method">POST</span> <span class="hl-url"><%= serverUrl %>/fs/log.txt?append=1</span> \
+  <span class="hl-flag">-d</span> <span class="hl-string">"New log entry"</span></pre>
+            </div>
+
+            <p class="example-label">Delete file or directory</p>
+            <div class="code-block-wrapper">
+                <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
+                <pre class="code-block"><span class="hl-curl">curl</span> <span class="hl-flag">-X</span> <span class="hl-method">DELETE</span> <span class="hl-url"><%= serverUrl %>/fs/temp?recursive=1</span></pre>
+            </div>
+
+            <p class="example-label">Get file metadata</p>
+            <div class="code-block-wrapper">
+                <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
+                <pre class="code-block"><span class="hl-curl">curl</span> <span class="hl-flag">-I</span> <span class="hl-url"><%= serverUrl %>/fs/data.json</span></pre>
+            </div>
+            </div>
         </section>
     </main>
 
@@ -194,6 +296,46 @@ print(resp.json())</pre>
                 console.error('Failed to copy:', err);
             });
         }
+        
+        function toggleCollapse(id) {
+            const content = document.getElementById(id);
+            const button = document.getElementById(id + 'Btn');
+            
+            if (content.classList.contains('collapsed')) {
+                content.classList.remove('collapsed');
+                button.textContent = 'Hide';
+            } else {
+                content.classList.add('collapsed');
+                button.textContent = 'Show';
+            }
+        }
+        
+        async function checkHealth() {
+            const badge = document.getElementById('statusBadge');
+            const text = document.getElementById('statusText');
+            
+            try {
+                const response = await fetch('/health');
+                const data = await response.json();
+                
+                if (data.status === 'healthy') {
+                    badge.className = 'status-badge healthy';
+                    text.textContent = 'Healthy';
+                } else {
+                    badge.className = 'status-badge unhealthy';
+                    text.textContent = data.status || 'Unhealthy';
+                }
+            } catch (error) {
+                badge.className = 'status-badge unhealthy';
+                text.textContent = 'Offline';
+            }
+        }
+        
+        // Check health on page load
+        checkHealth();
+        
+        // Refresh health status every 30 seconds
+        setInterval(checkHealth, 30000);
     </script>
 </body>
 </html>

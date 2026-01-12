@@ -85,7 +85,7 @@ export const SANDBOX_BASHRC = `# Source global bashrc if it exists
 [ -f ~/.bashrc ] && . ~/.bashrc
 
 # Set environment to match sandbox execution
-export PATH="/root/.local/bin:/sandbox/js-ts/node_modules/.bin:/sandbox/py/venv/bin:\$PATH"
+export PATH="/root/.local/bin:/root/.opencode/bin:/sandbox/js-ts/node_modules/.bin:/sandbox/py/venv/bin:\$PATH"
 export NODE_PATH="/sandbox/js-ts/node_modules"
 export VIRTUAL_ENV="/sandbox/py/venv"
 export PYTHONHOME=""

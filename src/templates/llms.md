@@ -1,6 +1,6 @@
 # Apify AI Sandbox
 
-Containerized sandbox environment for AI coding operations. Connect through REST, MCP, or the interactive shell.
+Containerized sandbox environment for AI coding operations. Connect through HTTP, MCP, or the interactive shell.
 
 ## Quick links
 
@@ -14,7 +14,7 @@ Containerized sandbox environment for AI coding operations. Connect through REST
 claude mcp add --transport http sandbox <%= serverUrl %>/mcp
 ```
 
-## Core REST endpoints
+## Core HTTP endpoints
 
 ### Execute commands or code
 
@@ -44,7 +44,7 @@ Run shell commands or execute code snippets.
 
 **Supported languages:** `js`, `javascript`, `ts`, `typescript`, `py`, `python`, `bash`, `sh` (or omit for shell)
 
-## Filesystem endpoints (RESTful)
+## Filesystem endpoints
 
 Direct file operations using HTTP methods. All paths relative to `/sandbox`.
 

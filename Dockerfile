@@ -82,10 +82,13 @@ COPY --from=builder /build/package-lock.json /app/package-lock.json
 
 # Copy OpenCode configuration
 RUN mkdir -p /root/.config/opencode
-COPY --from=builder /build/.opencode/opencode.json /root/.config/opencode/opencode.json
+COPY --from=builder /build/config-opencode/opencode.json /root/.config/opencode/opencode.json
 
 # Install production dependencies only
 RUN npm install --production
+
+# Add local bin to PATH for CLI tools (Claude at ~/.local/bin, OpenCode at ~/.opencode/bin)
+ENV PATH="/root/.local/bin:/root/.opencode/bin:$PATH"
 
 # Capture tool versions at build time for fast shell startup
 COPY scripts/capture-versions.sh /tmp/capture-versions.sh
