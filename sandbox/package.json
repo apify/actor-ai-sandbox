@@ -40,12 +40,13 @@
         "start:dev": "tsx src/main.ts",
         "start:standby": "APIFY_META_ORIGIN=\"STANDBY\" npm run start:dev",
         "build": "tsc -p tsconfig.build.json && npm run copy-templates",
-        "copy-templates": "mkdir -p dist/templates && cp src/templates/*.ejs src/templates/*.md dist/templates/",
+        "copy-templates": "mkdir -p dist/templates && cp src/templates/*.ejs src/templates/*.md src/templates/*.ico dist/templates/",
         "lint": "eslint",
         "lint:fix": "eslint --fix",
         "format": "prettier --write .",
         "format:check": "prettier --check .",
-        "test": "echo \"Error: oops, the Actor has no tests yet, sad!\" && exit 1"
+        "test": "echo \"ℹ️  No unit tests available. For E2E platform tests, run: npm run test:e2e\" && exit 0",
+        "test:e2e": "tsx tests/e2e.ts"
     },
     "author": "It's not you it's me",
     "license": "ISC"

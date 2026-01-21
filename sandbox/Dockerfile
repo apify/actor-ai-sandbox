@@ -1,0 +1,125 @@
+# Stage 1: Builder - Compile TypeScript and ttyd
+FROM node:24-trixie-slim AS builder
+
+# Install build tools and dependencies for ttyd
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    git \
+    libjson-c-dev \
+    libwebsockets-dev \
+    python3 \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Build ttyd from source
+RUN git clone --depth 1 https://github.com/tsl0922/ttyd.git /tmp/ttyd \
+    && cd /tmp/ttyd && mkdir build && cd build \
+    && cmake .. \
+    && make && make install
+
+# Set working directory
+WORKDIR /build
+
+# Copy all source files
+COPY . ./
+
+# Install all dependencies (including dev dependencies for build)
+RUN npm install
+
+# Compile TypeScript to JavaScript
+RUN npm run build
+
+# Stage 2: Runtime - Node.js image
+FROM node:24-trixie-slim
+
+# Install required dependencies for sandbox operations
+RUN apt-get update && apt-get install -y \
+    bash \
+    curl \
+    wget \
+    git \
+    python3 \
+    python3-venv \
+    python3-pip \
+    ca-certificates \
+    libjson-c-dev \
+    libwebsockets-dev \
+    libsecret-1-0 \
+    procps \
+    jq \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install tsx globally for TypeScript execution in execute-code endpoint
+RUN npm install -g tsx
+
+# Install Apify CLI globally
+RUN npm install -g apify-cli
+
+# Install Apify MCP CLI globally (package: @apify/mcpc, binary: mcpc)
+RUN npm install -g @apify/mcpc
+
+# Install Claude Code CLI
+RUN curl -fsSL https://claude.ai/install.sh | bash
+
+# Install OpenCode CLI
+RUN curl -fsSL https://opencode.ai/install | bash
+
+# Create sandbox directory for operations
+RUN mkdir -p /sandbox && chmod 755 /sandbox
+
+# Create Python sandbox directory with venv and pre-install apify-client
+RUN mkdir -p /sandbox/py && chmod 755 /sandbox/py && \
+    python3 -m venv /sandbox/py/venv && \
+    /sandbox/py/venv/bin/pip install --upgrade pip && \
+    /sandbox/py/venv/bin/pip install apify-client && \
+    echo "apify-client pre-installed in Python venv"
+
+# Create JS/TS sandbox directory with proper package.json and pre-install apify-client
+RUN mkdir -p /sandbox/js-ts && chmod 755 /sandbox/js-ts && \
+    cd /sandbox/js-ts && \
+    echo '{"name":"apify-sandbox-js-ts","version":"1.0.0","description":"Sandbox for JS/TS code execution","type":"module","dependencies":{"apify-client":"*"}}' > package.json && \
+    npm install && \
+    echo "apify-client pre-installed in Node.js environment"
+
+# Copy AGENTS.md to sandbox for AI coding agents
+COPY --from=builder /build/artifacts/AGENTS.md /sandbox/AGENTS.md
+
+# Capture baseline package state for migration persistence
+RUN mkdir -p /app && \
+    /sandbox/py/venv/bin/pip freeze > /app/.baseline-pip-freeze.txt && \
+    dpkg --get-selections > /app/.baseline-dpkg.txt && \
+    echo "Baseline package state captured"
+
+# Set working directory
+WORKDIR /app
+
+# Copy compiled dist folder from builder
+COPY --from=builder /build/dist /app/dist
+
+# Copy ttyd binary from builder
+COPY --from=builder /usr/local/bin/ttyd /usr/local/bin/ttyd
+
+# Copy package.json and production node_modules from builder
+COPY --from=builder /build/package.json /app/package.json
+COPY --from=builder /build/package-lock.json /app/package-lock.json
+
+# Copy OpenCode configuration
+RUN mkdir -p /root/.config/opencode
+COPY --from=builder /build/artifacts/opencode.json /root/.config/opencode/opencode.json
+
+# Install production dependencies only
+RUN npm install --production
+
+# Add local bin to PATH for CLI tools (Claude at ~/.local/bin, OpenCode at ~/.opencode/bin)
+ENV PATH="/root/.local/bin:/root/.opencode/bin:$PATH"
+
+# Capture tool versions at build time for fast shell startup
+COPY scripts/capture-versions.sh /tmp/capture-versions.sh
+RUN chmod +x /tmp/capture-versions.sh && /tmp/capture-versions.sh && rm /tmp/capture-versions.sh
+
+# Run as root user (required for sandbox execution)
+USER root
+
+# Use Node.js to execute the compiled application
+ENTRYPOINT ["node", "/app/dist/main.js"]

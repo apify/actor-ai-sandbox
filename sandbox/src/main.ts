@@ -1,7 +1,9 @@
 import { spawn } from 'node:child_process';
-import { writeFileSync, chmodSync, mkdirSync } from 'node:fs';
+import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
 import http, { createServer } from 'node:http';
-import { format } from 'node:util';
+import { dirname, join } from 'node:path';
+import type { Duplex } from 'node:stream';
+import { fileURLToPath } from 'node:url';
 
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { Actor, log } from 'apify';
@@ -9,24 +11,22 @@ import type { Request, Response } from 'express';
 import express from 'express';
 import httpProxy from 'http-proxy';
 
+import { SANDBOX_DIR } from './consts.js';
 import { executeInitScript, setupExecutionEnvironment } from './environment.js';
 import { createMcpServer } from './mcp.js';
-import { SANDBOX_DIR } from './consts.js';
 import {
     appendFile,
     createDirectory,
     createZipArchive,
     deleteFileOrDirectory,
     executeCode,
-    listFiles,
     listFilesDetailed,
-    readFile,
     readFileBinary,
     runCommand,
     statPath,
-    writeFile,
     writeFileBinary,
 } from './operations.js';
+import { initializePersistence, restoreMigrationState, saveMigrationState } from './persistence.js';
 import { getLandingPageHTML, getLLMsMarkdown } from './templates/landing.js';
 import { SANDBOX_BASHRC, WELCOME_SCRIPT } from './templates/shell.js';
 import type { ActorInput } from './types.js';
@@ -57,15 +57,36 @@ log.info('Actor input retrieved', {
     mode: isLocalMode ? 'local' : 'production',
     hasNodeDependencies: !!input?.nodeDependencies && Object.keys(input.nodeDependencies).length > 0,
     hasPythonRequirements: !!input?.pythonRequirementsTxt?.trim().length,
-    hasInitScript: !!input?.initScript?.trim().length,
+    hasInitScript: !!input?.initShellScript?.trim().length,
 });
 
-// Setup execution environment with dependencies
-log.info('Setting up execution environment...');
-const setupResult = await setupExecutionEnvironment({
-    nodeDependencies: input?.nodeDependencies,
-    pythonRequirementsTxt: input?.pythonRequirementsTxt,
-});
+// Check for migration state and restore if available
+let restoredFromMigration = false;
+if (!isLocalMode) {
+    log.info('Checking for migration state to restore...');
+    restoredFromMigration = await restoreMigrationState();
+
+    if (restoredFromMigration) {
+        log.info('Successfully restored from migration state');
+    }
+}
+
+// Setup execution environment with dependencies (skip if restored from migration)
+let setupResult;
+if (restoredFromMigration) {
+    log.info('Skipping dependency installation (already restored from migration)');
+    setupResult = {
+        success: true,
+        nodeSetup: { installed: [], failed: [] },
+        pythonSetup: { installed: [], failed: [] },
+    };
+} else {
+    log.info('Setting up execution environment...');
+    setupResult = await setupExecutionEnvironment({
+        nodeDependencies: input?.nodeDependencies,
+        pythonRequirementsTxt: input?.pythonRequirementsTxt,
+    });
+}
 
 if (!setupResult.success) {
     log.warning('Some dependencies failed to install', {
@@ -79,9 +100,9 @@ if (!setupResult.success) {
 }
 
 // Execute init script if provided and not empty
-if (input?.initScript && input.initScript.trim().length > 0) {
+if (input?.initShellScript && input.initShellScript.trim().length > 0) {
     log.info('Executing init script...');
-    const initResult = await executeInitScript(input.initScript);
+    const initResult = await executeInitScript(input.initShellScript);
     if (initResult.exitCode !== 0) {
         log.error('Init script failed', {
             exitCode: initResult.exitCode,
@@ -106,6 +127,27 @@ if (!isLocalMode) {
     } catch (err) {
         log.error('Failed to write shell environment files', { error: (err as Error).message });
     }
+}
+
+// Initialize persistence system (create startup marker for tracking changes)
+if (!isLocalMode && !restoredFromMigration) {
+    try {
+        initializePersistence();
+    } catch (err) {
+        log.error('Failed to initialize persistence system', { error: (err as Error).message });
+    }
+}
+
+// Register migration event handler
+if (!isLocalMode) {
+    Actor.on('migrating', async () => {
+        log.info('Migration event received, saving Actor state...');
+        try {
+            await saveMigrationState();
+        } catch (err) {
+            log.error('Failed to save migration state', { error: (err as Error).message });
+        }
+    });
 }
 
 // Mark initialization as complete
@@ -547,6 +589,14 @@ app.get('/', (_req: Request, res: Response) => {
     );
 });
 
+// Favicon endpoint
+app.get('/favicon.ico', (_req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'image/x-icon');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    const faviconPath = join(dirname(fileURLToPath(import.meta.url)), 'templates', 'favicon.ico');
+    res.sendFile(faviconPath);
+});
+
 // LLMs.txt endpoint (Markdown documentation for LLMs)
 app.get('/llms.txt', (_req: Request, res: Response) => {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
@@ -671,108 +721,6 @@ app.post('/exec', async (req: Request, res: Response) => {
     }
 });
 
-// Write file
-app.post('/write-file', async (req: Request, res: Response) => {
-    try {
-        const { path: filePath, content, mode } = req.body;
-
-        log.info('REST /write-file request received', { path: filePath, contentLength: content?.length, mode });
-
-        if (!filePath) {
-            log.warning('REST /write-file: file path is required');
-            res.status(400).json({
-                error: 'File path is required',
-            });
-            return;
-        }
-
-        if (content === undefined) {
-            log.warning('REST /write-file: content is required');
-            res.status(400).json({
-                error: 'Content is required',
-            });
-            return;
-        }
-
-        const result = await writeFile(filePath, content, mode);
-
-        if (!result.success) {
-            log.warning('REST /write-file failed', { path: filePath, error: result.error });
-            res.status(500).json(result);
-            return;
-        }
-
-        log.info('REST /write-file completed successfully', { path: filePath });
-        res.json(result);
-    } catch (error) {
-        log.error('REST /write-file error', { error });
-        const err = error as Error;
-        res.status(500).json({
-            error: err.message,
-        });
-    }
-});
-
-// Read file
-app.post('/read-file', async (req: Request, res: Response) => {
-    try {
-        const { path: filePath } = req.body;
-
-        log.info('REST /read-file request received', { path: filePath });
-
-        if (!filePath) {
-            log.warning('REST /read-file: file path is required');
-            res.status(400).json({
-                error: 'File path is required',
-            });
-            return;
-        }
-
-        const result = await readFile(filePath);
-
-        if (result.error) {
-            log.warning('REST /read-file failed', { path: filePath, error: result.error });
-            res.status(404).json(result);
-            return;
-        }
-
-        log.info('REST /read-file completed successfully', { path: filePath, contentLength: result.content?.length });
-        res.json(result);
-    } catch (error) {
-        log.error('REST /read-file error', { error });
-        const err = error as Error;
-        res.status(404).json({
-            error: err.message,
-        });
-    }
-});
-
-// List files in directory
-app.post('/list-files', async (req: Request, res: Response) => {
-    try {
-        const { path: dirPath } = req.body;
-
-        log.info('REST /list-files request received', { path: dirPath });
-
-        const result = await listFiles(dirPath);
-
-        if (result.error) {
-            log.warning('REST /list-files failed', { path: dirPath, error: result.error });
-            res.status(500).json(result);
-            return;
-        }
-
-        log.info('REST /list-files completed successfully', { path: result.path, fileCount: result.files.length });
-        res.json(result);
-    } catch (error) {
-        log.error('REST /list-files error', { error });
-        const err = error as Error;
-        res.status(500).json({
-            error: err.message,
-        });
-    }
-});
-
 // ============================================================================
 // Shell (ttyd) Implementation
 // ============================================================================
@@ -783,9 +731,10 @@ const spawnTtyd = () => {
     log.info('Spawning ttyd process...', { port: shellPort });
 
     // Run ttyd with custom bashrc for better UX and environment alignment
-    const ttyd = spawn('ttyd', ['-p', shellPort.toString(), '-W', 'bash', '--rcfile', '/app/sandbox_bashrc'], {
+    const ttyd = spawn('ttyd', ['-p', shellPort.toString(), '-a', '-W', 'bash', '--rcfile', '/app/sandbox_bashrc'], {
         stdio: 'ignore',
         cwd: SANDBOX_DIR,
+        env: process.env,
     });
 
     ttyd.on('error', (err) => {
@@ -804,11 +753,15 @@ if (!isLocalMode) {
 
 // Manual HTTP Proxy for ttyd
 app.all('/shell*', (req, res) => {
-    const path = req.url.replace(/^\/shell/, '') || '/';
+    let path = req.url.replace(/^\/shell/, '') || '/';
+    // Ensure path starts with / (handle query strings like ?arg=...)
+    if (path.startsWith('?')) {
+        path = '/' + path;
+    }
     const options = {
         hostname: '127.0.0.1',
         port: shellPort,
-        path: path,
+        path,
         method: req.method,
         headers: req.headers,
     };
@@ -846,7 +799,7 @@ server.on('upgrade', (req, socket, head) => {
             lastActivityAt = Date.now();
         });
 
-        wsProxy.ws(req, socket as any, head);
+        wsProxy.ws(req, socket as Duplex, head);
     }
 });
 
@@ -878,18 +831,6 @@ server.listen(port, () => {
     console.log(`       Execute shell commands or code (JavaScript, TypeScript, Python)`);
     console.log(`       Body: { command: string, language?: string, cwd?: string, timeoutSecs?: number }`);
     console.log(`       Languages: js, javascript, ts, typescript, py, python, bash, sh (omit for shell)\n`);
-
-    console.log(`   POST ${serverUrl}/read-file`);
-    console.log(`       Read file contents`);
-    console.log(`       Body: { path: string }\n`);
-
-    console.log(`   POST ${serverUrl}/write-file`);
-    console.log(`       Write file contents`);
-    console.log(`       Body: { path: string, content: string, mode?: number }\n`);
-
-    console.log(`   POST ${serverUrl}/list-files`);
-    console.log(`       List directory contents`);
-    console.log(`       Body: { path?: string }\n`);
 
     console.log(`   GET ${serverUrl}/health`);
     console.log(`       Health check\n`);

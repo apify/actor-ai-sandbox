@@ -1,6 +1,126 @@
-# Apify Actors Development Guide
+# Apify AI Sandbox - Development Guide
+
+This guide is for AI coding agents working on the Apify AI Sandbox Actor codebase.
 
 Important: Before you begin, fill in the `generatedBy` property in the meta section of `.actor/actor.json`. Replace it with the model you're currently using. This helps Apify monitor and improve AGENTS.md for specific LLM models.
+
+## Commands
+
+### Development & Testing
+
+```bash
+# Start Actor in development mode (with hot reload)
+npm run start:dev              # Start server with tsx
+npm run start:local            # Start in local mode (skips sandbox setup)
+npm run start:standby          # Start in standby mode
+
+# Build & Production
+npm run build                  # Compile TypeScript to dist/ + copy templates
+npm run start:prod             # Run compiled dist/main.js
+
+# Code Quality
+npm run lint                   # Run ESLint (checks for errors)
+npm run lint:fix               # Fix auto-fixable ESLint issues
+npm run format                 # Format code with Prettier
+npm run format:check           # Check formatting without changing files
+
+# Type Checking
+tsc --noEmit                   # Type check only (fast, no output) - USE THIS for verification
+tsc -p tsconfig.build.json     # Full build with output
+
+# IMPORTANT: Avoid Unnecessary Builds
+# NEVER run 'npm run build' unless explicitly needed (e.g., before deployment)
+# For quick verification after code changes, ALWAYS use 'tsc --noEmit' instead
+# Building is slow and unnecessary for development/testing - tsx runs TypeScript directly
+
+# Testing
+npm test                       # Run tests (placeholder - no unit tests)
+npm run test:e2e               # Run E2E platform tests (deploys to Apify)
+
+# Apify CLI
+apify run                      # Run Actor locally
+apify login                    # Authenticate with Apify
+apify push                     # Deploy to Apify platform
+```
+
+### Running a Single Test
+
+Currently there are no unit tests. The E2E test suite deploys to Apify platform and tests all endpoints:
+
+```bash
+# Run E2E platform tests (deploys Actor, runs tests, cleans up)
+npm run test:e2e
+```
+
+## Code Style Guidelines
+
+### Formatting & TypeScript
+
+- **Indentation:** 4 spaces | **Line Length:** 120 chars | **Quotes:** Single | **Semicolons:** Required
+- **Trailing Commas:** ES5 style | **Strict Mode:** Enabled via @apify/tsconfig
+- **Module System:** ES modules (`"type": "module"`) | **Module Resolution:** NodeNext | **Target:** ES2022
+- Always use explicit types for function parameters and return values
+- Prefer interfaces over type aliases for object shapes
+
+### Imports & Naming
+
+Organize imports: Node.js built-ins (`node:` prefix) → External deps → Internal (`.js` extension)
+
+```typescript
+import { spawn } from 'node:child_process';
+import { Actor, log } from 'apify';
+import { executeCode } from './operations.js'; // ✅ Always use .js extension
+```
+
+**Naming:** kebab-case (files) | camelCase (functions/vars) | PascalCase (types) | UPPER_SNAKE_CASE (constants)
+
+**Capitalization:**
+
+- Use sentence case: "This style capitalization" NOT "This Style Capitalization"
+- Always capitalize "Actor" when referring to Apify Actors (e.g., "Actor input", "Actor configuration")
+
+### Functions & Logging
+
+- Prefer async/await, always type params/returns, use JSDoc for exported functions
+- **CRITICAL:** Always use `apify/log` (never `console.log`) - censors sensitive data (API keys, tokens)
+
+```typescript
+import { log } from 'apify';
+log.debug('msg');
+log.info('msg');
+log.warning('msg');
+log.error('msg');
+log.exception('msg', error);
+```
+
+### Error Handling & Routes
+
+- Never throw in route handlers - return error responses
+- Validate input at API boundaries, return structured errors: `{ success: false, error: string }`
+- Use try-catch for async operations, log before returning errors
+- HTTP status codes: 200 (success), 400 (bad request), 404 (not found), 500 (server error)
+- Type routes with Express `Request` and `Response`
+
+```typescript
+app.post('/endpoint', async (req: Request, res: Response) => {
+    try {
+        const { param } = req.body;
+        if (!param) return res.status(400).json({ error: 'Param required' });
+
+        const result = await operation(param);
+        if (!result.success) return res.status(500).json(result);
+
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: (error as Error).message });
+    }
+});
+```
+
+### Testing
+
+- Tests in `tests/` directory with `.ts` extension, executable with `tsx`
+- E2E platform test suite: `tests/e2e.ts` (deploys to Apify, runs 47 endpoint tests, cleans up)
 
 ## What are Apify Actors?
 
@@ -137,7 +257,15 @@ Ask first:
 - proxy configuration changes (requires paid plan)
 - Dockerfile changes affecting builds
 - deleting datasets or key-value stores
-- **git commits** - Only commit when explicitly requested by the user. Never commit automatically.
+- **git commits** - Only commit when explicitly requested by the user. Never commit automatically. Use semantic commit messages following the conventional commits format:
+    - `feat:` - New feature
+    - `fix:` - Bug fix
+    - `docs:` - Documentation changes
+    - `refactor:` - Code refactoring without changing functionality
+    - `test:` - Adding or updating tests
+    - `chore:` - Maintenance tasks (dependencies, configs, build)
+    - `perf:` - Performance improvements
+    - Example: `feat: add user authentication with JWT tokens`
 - **pull requests** - Use semantic PR titles (e.g., `feat:`, `fix:`, `docs:`) and keep PR bodies brief and to the point. Focus on the "why" not the "what".
 
 ## Project Structure
@@ -145,6 +273,9 @@ Ask first:
 ```
 .actor/
 ├── actor.json                    # Actor configuration (name, version, input schema)
+scripts/
+└── capture-versions.sh           # Build-time version capture script (runs in Dockerfile)
+                                  # Caches tool versions to /app/.versions/*.txt for fast shell startup
 src/
 ├── main.ts                       # Express HTTP server & Actor initialization
 ├── mcp.ts                        # Model Context Protocol (MCP) server
@@ -153,7 +284,7 @@ src/
 ├── types.ts                      # TypeScript type definitions and interfaces
 └── consts.ts                     # Constants and configuration values
 tests/
-└── rest-endpoints.ts             # REST API endpoint tests
+└── e2e.ts                        # E2E platform tests (deployment + 47 endpoint tests)
 storage/                          # Local storage (mirrors Cloud during development)
 ├── datasets/                     # Output items (JSON objects)
 ├── key_value_stores/             # Files, config, INPUT
@@ -161,6 +292,60 @@ storage/                          # Local storage (mirrors Cloud during developm
 Dockerfile                        # Container image definition
 AGENTS.md                         # AI agent instructions (this file)
 ```
+
+## Interactive Shell Terminal
+
+The Actor provides an interactive browser-based terminal powered by [ttyd](https://github.com/tsl0922/ttyd) that runs bash in the sandbox environment.
+
+### Basic Usage
+
+Access the terminal at:
+
+```
+GET /shell/
+```
+
+This opens an interactive bash session with:
+
+- Custom environment variables (NODE_PATH, VIRTUAL_ENV, PATH)
+- Installed dependencies (Node.js, Python, Apify CLI, Claude Code, etc.)
+- Working directory set to `/sandbox`
+
+### URL Argument Passing
+
+You can pass arguments to bash via URL query parameters using the `?arg=` syntax:
+
+```
+GET /shell?arg=-c&arg=<command>
+```
+
+This executes a one-off command instead of opening an interactive session.
+
+**Examples:**
+
+```bash
+# Run a simple command
+GET /shell?arg=-c&arg=echo hello
+
+# Run cowsay
+GET /shell?arg=-c&arg=cowsay hello
+
+# Execute a script
+GET /shell?arg=-c&arg=python script.py
+
+# Run Node.js code
+GET /shell?arg=-c&arg=node -e "console.log('hello')"
+```
+
+**Implementation Details:**
+
+- ttyd is spawned with the `-a` flag to enable URL argument acceptance
+- The proxy normalizes paths to ensure query strings like `?arg=...` are correctly formatted as `/?arg=...`
+- Arguments are passed directly to bash, so bash syntax applies (e.g., `-c` requires the command as the next argument)
+
+**Security Note:**
+
+URL arguments are passed directly to bash without additional validation. Only use this feature with trusted input.
 
 ## Actor Input Schema
 
@@ -568,5 +753,3 @@ Otherwise, reference: `@https://mcp.apify.com/`
 - [docs.apify.com/llms-full.txt](https://docs.apify.com/llms-full.txt) - Complete docs
 - [crawlee.dev](https://crawlee.dev) - Crawlee documentation
 - [whitepaper.actor](https://raw.githubusercontent.com/apify/actor-whitepaper/refs/heads/master/README.md) - Complete Actor specification
-
-NEVER EVER READ OR OPEN OR EDIT CONTENTS OF `mcp/` DIR.

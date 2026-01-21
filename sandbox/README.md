@@ -26,23 +26,23 @@ Start the Actor (see Quickstart above), then choose how to interact:
 - REST API: Endpoints to run code or shell commands.
 - Interactive shell: Browser terminal for manual exploration.
 
-### MCP Client
+### MCP client
 
 Use a Model Context Protocol (MCP) client to interact with this sandbox. See [modelcontextprotocol.io/clients](https://modelcontextprotocol.io/clients).
 
-**Connect with Claude code:**
+**Connect with Claude Code:**
 
 ```bash
-claude mcp add --transport http sandbox https://YOUR-RUN-ID.runs.apify.net/mcp
+claude mcp add --transport http sandbox https://UNIQUE-ID.runs.apify.net/mcp
 ```
 
-Replace `YOUR-RUN-ID` with the run ID from your Actor execution (URL is also in the landing page and logs). Then prompt your agent; it will use the sandbox tools automatically over MCP.
+Replace `UNIQUE-ID` with the run ID from your Actor execution (URL is also in the landing page and logs). Then prompt your agent; it will use the sandbox tools automatically over MCP.
 
 ### REST API
 
 Available endpoints (all URLs come from the run logs/landing page):
 
-#### Core Endpoints
+#### Core endpoints
 
 - `POST /mcp`
     - Body: JSON-RPC over HTTP per MCP client
@@ -54,21 +54,6 @@ Available endpoints (all URLs come from the run logs/landing page):
     - Language options: `"js"`, `"javascript"`, `"ts"`, `"typescript"`, `"py"`, `"python"`, `"bash"`, `"sh"` (omit for shell)
     - Returns (200 on success, 500 on error): `{ stdout: string; stderr: string; exitCode: number; language: string }`
     - The `language` field in response is always present: `"shell"` for shell commands, `"js"`/`"ts"`/`"py"` for code
-
-- `POST /read-file`
-    - Read file contents as JSON
-    - Body: `{ path: string }`
-    - Returns (200): `{ content: string }` or (404): `{ error: string }`
-
-- `POST /write-file`
-    - Write file contents from JSON
-    - Body: `{ path: string; content: string; mode?: number }`
-    - Returns (200): `{ success: boolean }` or (500): `{ error: string }`
-
-- `POST /list-files`
-    - List directory contents
-    - Body: `{ path?: string }`
-    - Returns (200): `{ path: string; files: string[] }` or (500): `{ error: string }`
 
 - `GET /health`
     - Health check endpoint
@@ -88,7 +73,7 @@ Available endpoints (all URLs come from the run logs/landing page):
 - `status: "unhealthy"` (503) – init script failed; check logs
 - `status: "healthy"` (200) – ready for requests
 
-#### RESTful Filesystem Endpoints
+#### RESTful filesystem endpoints
 
 Direct filesystem access using standard HTTP methods. All paths are relative to `/sandbox`.
 
@@ -131,45 +116,45 @@ Direct filesystem access using standard HTTP methods. All paths are relative to 
 
 **Security**: Paths are validated to prevent escaping the `/sandbox` directory. Symlinks are followed but validated to stay within `/sandbox`.
 
-**Filesystem Examples (curl):**
+**Filesystem examples (curl):**
 
 ```bash
 # Read a file
-curl https://YOUR-RUN-ID.runs.apify.net/fs/app/config.json
+curl https://UNIQUE-ID.runs.apify.net/fs/app/config.json
 
 # List directory contents
-curl https://YOUR-RUN-ID.runs.apify.net/fs/app
+curl https://UNIQUE-ID.runs.apify.net/fs/app
 
 # Download directory as ZIP
-curl https://YOUR-RUN-ID.runs.apify.net/fs/app?download=1 -o app.zip
+curl https://UNIQUE-ID.runs.apify.net/fs/app?download=1 -o app.zip
 
 # Upload a file
-curl -X PUT https://YOUR-RUN-ID.runs.apify.net/fs/app/config.json \
+curl -X PUT https://UNIQUE-ID.runs.apify.net/fs/app/config.json \
   -H "Content-Type: application/json" \
   -d '{"key": "value"}'
 
 # Create a directory
-curl -X POST https://YOUR-RUN-ID.runs.apify.net/fs/app/data?mkdir=1
+curl -X POST https://UNIQUE-ID.runs.apify.net/fs/app/data?mkdir=1
 
 # Append to a log file
-curl -X POST https://YOUR-RUN-ID.runs.apify.net/fs/app/log.txt?append=1 \
+curl -X POST https://UNIQUE-ID.runs.apify.net/fs/app/log.txt?append=1 \
   -H "Content-Type: text/plain" \
   -d "New log entry"
 
 # Delete a file
-curl -X DELETE https://YOUR-RUN-ID.runs.apify.net/fs/app/temp.txt
+curl -X DELETE https://UNIQUE-ID.runs.apify.net/fs/app/temp.txt
 
 # Delete directory recursively
-curl -X DELETE https://YOUR-RUN-ID.runs.apify.net/fs/app/temp?recursive=1
+curl -X DELETE https://UNIQUE-ID.runs.apify.net/fs/app/temp?recursive=1
 
 # Get file metadata
-curl -I https://YOUR-RUN-ID.runs.apify.net/fs/app/data.json
+curl -I https://UNIQUE-ID.runs.apify.net/fs/app/data.json
 ```
 
-**Upload/Download Files (TypeScript):**
+**Upload/download files (TypeScript):**
 
 ```ts
-const baseUrl = 'https://YOUR-RUN-ID.runs.apify.net';
+const baseUrl = 'https://UNIQUE-ID.runs.apify.net';
 
 // Upload a file
 const uploadResponse = await fetch(`${baseUrl}/fs/app/document.pdf`, {
@@ -200,12 +185,12 @@ await fetch(`${baseUrl}/fs/project/README.md`, {
 });
 ```
 
-**Upload/Download Files (Python):**
+**Upload/download files (Python):**
 
 ```python
 import requests
 
-base_url = "https://YOUR-RUN-ID.runs.apify.net"
+base_url = "https://UNIQUE-ID.runs.apify.net"
 
 # Upload a file
 with open('document.pdf', 'rb') as f:
@@ -236,10 +221,10 @@ requests.post(f"{base_url}/fs/project/tests?mkdir=1")
 requests.put(f"{base_url}/fs/project/README.md", data=b"# My Project")
 ```
 
-**Code Execution Examples (TypeScript/Node):**
+**Code execution examples (TypeScript/Node):**
 
 ```ts
-const baseUrl = 'https://YOUR-RUN-ID.runs.apify.net';
+const baseUrl = 'https://UNIQUE-ID.runs.apify.net';
 
 // Execute Python code
 const codeRes = await fetch(`${baseUrl}/exec`, {
@@ -266,12 +251,12 @@ const shellRes = await fetch(`${baseUrl}/exec`, {
 console.log(await shellRes.json());
 ```
 
-**Code Execution Examples (Python):**
+**Code execution examples (Python):**
 
 ```python
 import requests
 
-base_url = "https://YOUR-RUN-ID.runs.apify.net"
+base_url = "https://UNIQUE-ID.runs.apify.net"
 
 # Execute Python code
 payload = {"command": "print('hello from python')", "language": "py", "timeoutSecs": 10}
@@ -286,7 +271,7 @@ resp.raise_for_status()
 print(resp.json())
 ```
 
-### Interactive Shell Terminal
+### Interactive shell terminal
 
 Open the interactive shell terminal URL from the run logs (also linked on the landing page) to work directly in the browser.
 
@@ -298,13 +283,13 @@ Open the interactive shell terminal URL from the run logs (also linked on the la
 - **Request timeout:** All requests to the Actor have a 5-minute timeout ceiling. All operations (code execution, commands, file operations) must complete within this time limit. The `timeout` parameter in requests cannot exceed this 5-minute window
 - **Check logs:** Open the Actor run log console to view connection details and operation output
 
-## Sandbox Environment Structure
+## Sandbox environment structure
 
 The sandbox runs on a **Debian Trixie** container image with **Node.js 24**, **Python 3**, and essential development tools pre-installed.
 
 The sandbox provides isolated execution environments for different code languages:
 
-### Code Execution Directories
+### Code execution directories
 
 - **Python**: `/sandbox/py`
     - Python code executes in this isolated directory
@@ -320,7 +305,7 @@ The sandbox provides isolated execution environments for different code language
     - Shell commands via `/exec` endpoint run from sandbox root
     - Can access all subdirectories
 
-### Dependency Installation
+### Dependency installation
 
 Specify dependencies to install via Actor input:
 
@@ -338,7 +323,7 @@ Specify dependencies to install via Actor input:
 
 Dependencies are installed during Actor startup before any code execution, allowing your code to immediately use them.
 
-### Customization with Init Script
+### Customization with init script
 
 Provide a bash script via the "Initialization Script" input to customize the sandbox:
 

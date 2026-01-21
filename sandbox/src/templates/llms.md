@@ -1,12 +1,12 @@
 # Apify AI Sandbox
 
-Containerized sandbox environment for AI coding operations. Connect through REST, MCP, or the interactive shell.
+Containerized sandbox environment for AI coding operations. Connect through HTTP, MCP, or the interactive shell.
 
-## Quick Links
+## Quick links
 
-- **Shell Terminal**: <%= serverUrl %>/shell/
-- **Health Check**: <%= serverUrl %>/health
-- **MCP Endpoint**: <%= serverUrl %>/mcp
+- **Shell terminal**: <%= serverUrl %>/shell/
+- **Health check**: <%= serverUrl %>/health
+- **MCP endpoint**: <%= serverUrl %>/mcp
 
 ## Connect with MCP
 
@@ -14,9 +14,9 @@ Containerized sandbox environment for AI coding operations. Connect through REST
 claude mcp add --transport http sandbox <%= serverUrl %>/mcp
 ```
 
-## Core REST Endpoints
+## Core HTTP endpoints
 
-### Execute Commands or Code
+### Execute commands or code
 
 **POST** `<%= serverUrl %>/exec`
 
@@ -44,30 +44,7 @@ Run shell commands or execute code snippets.
 
 **Supported languages:** `js`, `javascript`, `ts`, `typescript`, `py`, `python`, `bash`, `sh` (or omit for shell)
 
-### File Operations
-
-**POST** `<%= serverUrl %>/read-file`
-
-```json
-{ "path": "/sandbox/config.json" }
-```
-
-**POST** `<%= serverUrl %>/write-file`
-
-```json
-{
-    "path": "/sandbox/output.txt",
-    "content": "data"
-}
-```
-
-**POST** `<%= serverUrl %>/list-files`
-
-```json
-{ "path": "/sandbox" }
-```
-
-## Filesystem Endpoints (RESTful)
+## Filesystem endpoints
 
 Direct file operations using HTTP methods. All paths relative to `/sandbox`.
 
@@ -92,7 +69,7 @@ Direct file operations using HTTP methods. All paths relative to `/sandbox`.
     - Returns: Content-Type, Content-Length, Last-Modified, etc.
     - Example: `HEAD /fs/data.json`
 
-## Code Examples
+## Code examples
 
 ### TypeScript/Node.js
 
@@ -127,7 +104,7 @@ resp.raise_for_status()
 print(resp.json())
 ```
 
-## Response Format
+## Response format
 
 All `/exec` requests return:
 
@@ -140,7 +117,7 @@ All `/exec` requests return:
 }
 ```
 
-## Working Directories
+## Working directories
 
 - Shell commands: `/sandbox` (default)
 - JavaScript/TypeScript: `/sandbox/js-ts` (default)
