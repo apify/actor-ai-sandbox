@@ -731,7 +731,7 @@ const spawnTtyd = () => {
     log.info('Spawning ttyd process...', { port: shellPort });
 
     // Run ttyd with custom bashrc for better UX and environment alignment
-    const ttyd = spawn('ttyd', ['-p', shellPort.toString(), '-W', 'bash', '--rcfile', '/app/sandbox_bashrc'], {
+    const ttyd = spawn('ttyd', ['-p', shellPort.toString(), '-a', '-W', 'bash', '--rcfile', '/app/sandbox_bashrc'], {
         stdio: 'ignore',
         cwd: SANDBOX_DIR,
         env: process.env,
@@ -753,7 +753,11 @@ if (!isLocalMode) {
 
 // Manual HTTP Proxy for ttyd
 app.all('/shell*', (req, res) => {
-    const path = req.url.replace(/^\/shell/, '') || '/';
+    let path = req.url.replace(/^\/shell/, '') || '/';
+    // Ensure path starts with / (handle query strings like ?arg=...)
+    if (path.startsWith('?')) {
+        path = '/' + path;
+    }
     const options = {
         hostname: '127.0.0.1',
         port: shellPort,
