@@ -143,14 +143,14 @@ if (!isLocalMode && !restoredFromMigration) {
     }
 }
 
-// Register migration event handler
+// Register persist state event handler
 if (!isLocalMode) {
-    Actor.on('migrating', async () => {
-        log.info('Migration event received, saving Actor state...');
+    Actor.on('persistState', async () => {
+        log.info('Saving Actor state...');
         try {
             await saveMigrationState();
         } catch (err) {
-            log.error('Failed to save migration state', { error: (err as Error).message });
+            log.error('Failed to save state', { error: (err as Error).message });
         }
     });
 }
