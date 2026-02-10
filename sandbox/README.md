@@ -8,7 +8,7 @@ Isolated sandbox for running AI coding operations in a containerized environment
 - **🤖 AI agent development:** Provide isolated and managed development environments where AI agents can code, test, and execute operations securely
 - **📦 Sandboxed operations:** Execute system commands, file operations, and custom scripts in a contained environment
 - **🖥️ Interactive debugging:** Access the sandbox via browser-based shell terminal for real-time exploration and troubleshooting
-- **🌐 Interactive browser:** Use the integrated Firefox browser (via noVNC) to interact with local web apps, test UIs, and debug frontend applications visually
+- **🔀 Dynamic reverse proxy:** Expose local services (web servers, APIs, dashboards) running inside the container to external URL paths - accessible from outside the container
 - **🔗 Apify Actor orchestration:** Agents can access the limited permissions Apify token (available as `APIFY_TOKEN` env var) to run other [limited permissions Actors](https://docs.apify.com/platform/actors/development/permissions), process or analyze their output, and build complex data pipelines by combining results from multiple Actors
 
 ## Quickstart
@@ -64,14 +64,33 @@ Available endpoints (all URLs come from the run logs/landing page):
     - Interactive browser terminal
     - Returns: Interactive terminal powered by ttyd
 
-- `GET /browser/vnc.html?autoconnect=true`
-    - In-browser Firefox via noVNC
-    - Returns: Interactive VNC client with autoconnect to Firefox
-    - Supports full browser automation and UI testing
-
 - `GET /llms.txt`
     - Markdown documentation for LLMs (same usage info as landing page)
     - Returns (200): Plain text Markdown with all endpoint documentation
+
+#### Dynamic proxy endpoints
+
+Expose local services running inside the container to external URL paths. This allows you to start a web server (e.g., on port 3000) inside the sandbox and access it from outside via a mapped path.
+
+- `GET /proxy-config`
+    - List current proxy mappings
+    - Returns (200): `{ mappings: [{ path: string, target: string }] }`
+
+- `PUT /proxy-config`
+    - Replace all proxy mappings
+    - Body: `{ mappings: [{ path: "/myapp", target: "http://127.0.0.1:3000/myapp" }] }`
+    - Returns (200): `{ success: true, mappings: [...] }`
+
+- `POST /proxy-config`
+    - Add a single proxy mapping
+    - Body: `{ path: "/myapp", target: "http://127.0.0.1:3000/myapp" }`
+    - Returns (200): `{ success: true, mappings: [...] }`
+
+- `DELETE /proxy-config/{path}`
+    - Remove a proxy mapping by path
+    - Returns (200): `{ success: true, removed: string, mappings: [...] }`
+
+Once configured, all HTTP requests and WebSocket connections to the mapped path (e.g., `/myapp/*`) are transparently proxied to the local service. Mappings can also be configured via Actor input or by writing to `/sandbox/.proxy-mappings.json`.
 
 **Health status:**
 
@@ -281,30 +300,42 @@ print(resp.json())
 
 Open the interactive shell terminal URL from the run logs (also linked on the landing page) to work directly in the browser.
 
-### Interactive browser (Firefox via noVNC)
+### Dynamic reverse proxy
 
-Access Firefox directly in your browser to interact with local web applications and test UIs. The browser runs in a virtual display within the container and is accessible via noVNC WebSocket connection.
-
-**Use cases:**
-- Test local web apps running in the container
-- Interact with UIs visually for debugging and development
-- Verify frontend behavior in real-time
-- Quick visual inspection of services
-
-**Connect:**
-```
-https://UNIQUE-ID.runs.apify.net/browser/vnc.html?autoconnect=true
-```
-
-The browser starts ready to navigate. Launch your local web server in the container and open it in Firefox to test.
+Expose local services running inside the container to external URL paths. Start a web server inside the sandbox and access it from outside the container.
 
 **Example workflow:**
-```bash
-# In a code execution or shell session, start a local server:
-npx http-server /sandbox/frontend -p 8000
 
-# Then open http://localhost:8000 in the browser at /browser/vnc.html
+```bash
+# 1. Start a local web server inside the sandbox
+npx http-server /sandbox/myapp -p 8080
+
+# 2. Add a proxy mapping (via REST API)
+curl -X POST https://UNIQUE-ID.runs.apify.net/proxy-config \
+  -H "Content-Type: application/json" \
+  -d '{"path": "/myapp", "target": "http://127.0.0.1:8080"}'
+
+# 3. Access the app from outside
+# https://UNIQUE-ID.runs.apify.net/myapp/
 ```
+
+**Via Actor input:**
+
+Provide proxy mappings at startup via the `proxyMappings` input parameter:
+
+```json
+[{"path": "/myapp", "target": "http://127.0.0.1:3000/myapp"}]
+```
+
+**Via config file:**
+
+Mappings can also be modified by writing JSON to `/sandbox/.proxy-mappings.json`. Changes are detected automatically via file watching.
+
+**Features:**
+- Supports both HTTP and WebSocket connections
+- Longest-path matching for overlapping routes
+- Automatic redirect rewriting (Location headers)
+- Live reload on config file changes
 
 ## Configuration
 
