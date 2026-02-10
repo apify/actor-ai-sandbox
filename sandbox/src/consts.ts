@@ -73,3 +73,8 @@ export const MIGRATION_EXCLUDED_PATHS = [
     '/sandbox/js-ts/node_modules',
     '/sandbox/py/venv',
 ];
+
+/**
+ * Proxy mappings configuration file path
+ */
+export const PROXY_CONFIG_PATH = '/sandbox/.proxy-mappings.json';

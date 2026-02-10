@@ -8,13 +8,14 @@ A suite of Apify Actors providing secure, containerized environments for AI codi
 
 ## Overview
 
-This monorepo contains three Apify Actors designed for AI-powered coding workflows:
+This monorepo contains four Apify Actors designed for AI-powered coding workflows:
 
 | Actor | Description | Use Case |
 |-------|-------------|----------|
 | **[AI Sandbox](./sandbox)** | Core containerized environment with REST API, MCP server, and interactive shell | General AI agent development, sandboxed code execution |
 | **[Claude Code](./claude-code)** | One-click access to Anthropic's Claude Code | Instant Claude Code sessions on Apify |
 | **[OpenCode](./opencode)** | One-click access to open-source OpenCode | Free/open-source AI coding with multiple AI models support |
+| **[OpenClaw](./openclaw)** | Clears your inbox, sends emails, manages your calendar, checks you in for flights | All from Apify platform |
 
 ## Architecture
 
@@ -52,6 +53,7 @@ Once running, connect via:
 - **🖥️ Interactive Shell**: Browser-based terminal for real-time debugging
 - **🔗 Actor Orchestration**: Agents can use the Apify token to run other Actors
 - **📂 Filesystem API**: RESTful endpoints for file upload, download, and management
+- **🔀 Dynamic Proxy**: Expose local services running in the container to external paths
 - **⚡ Auto-Shutdown**: Configurable idle timeout for cost efficiency
 
 ## Repository Structure
@@ -66,9 +68,13 @@ Once running, connect via:
 │   ├── src/main.ts          # Metamorph into sandbox
 │   └── README.md            # Claude Code specific docs
 │
-└── opencode/                # OpenCode proxy Actor
-    ├── src/main.ts          # Metamorph into sandbox
-    └── README.md            # OpenCode specific docs
+├── opencode/                # OpenCode proxy Actor
+│   ├── src/main.ts          # Metamorph into sandbox
+│   └── README.md            # OpenCode specific docs
+│
+└── openclaw/                # OpenClaw proxy Actor
+    ├── src/main.ts          # Metamorph into sandbox with OpenClaw init
+    └── README.md            # OpenClaw specific docs
 ```
 
 ## Development
@@ -85,6 +91,7 @@ Once running, connect via:
 cd sandbox && npm install && npm run build
 cd ../claude-code && npm install && npm run build
 cd ../opencode && npm install && npm run build
+cd ../openclaw && npm install && npm run build
 ```
 
 ### Deploy
@@ -94,6 +101,7 @@ cd ../opencode && npm install && npm run build
 cd sandbox && apify push
 cd ../claude-code && apify push
 cd ../opencode && apify push
+cd ../openclaw && apify push
 ```
 
 ## Documentation
@@ -101,6 +109,7 @@ cd ../opencode && apify push
 - [AI Sandbox README](./sandbox/README.md) - Full API reference and usage examples
 - [Claude Code README](./claude-code/README.md) - Claude Code integration details
 - [OpenCode README](./opencode/README.md) - OpenCode integration details
+- [OpenClaw README](./openclaw/README.md) - OpenClaw integration details
 
 ## Links
 
@@ -108,3 +117,4 @@ cd ../opencode && apify push
 - [Model Context Protocol](https://modelcontextprotocol.io/)
 - [Claude Code](https://code.claude.com)
 - [OpenCode](https://opencode.ai)
+- [OpenClaw](https://openclaw.ai/)

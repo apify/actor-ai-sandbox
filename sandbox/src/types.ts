@@ -2,6 +2,16 @@
  * Type definitions for the Apify AI Sandbox Actor
  */
 
+/**
+ * Proxy mapping configuration for routing requests to local servers
+ */
+export interface ProxyMapping {
+    /** Exposed URL path on the container (e.g., /openclaw) */
+    path: string;
+    /** Full URL of the local service to proxy to (e.g., http://127.0.0.1:18789/openclaw) */
+    target: string;
+}
+
 export interface ActorInput {
     /**
      * Skill packages to install for the AI coding agent
@@ -37,4 +47,11 @@ export interface ActorInput {
      * @default 600 (10 minutes)
      */
     idleTimeoutSeconds?: number;
+
+    /**
+     * Proxy mappings for routing requests to local servers
+     * Maps exposed paths to local service URLs
+     * Example: [{ "path": "/openclaw", "target": "http://127.0.0.1:18789/openclaw" }]
+     */
+    proxyMappings?: ProxyMapping[];
 }

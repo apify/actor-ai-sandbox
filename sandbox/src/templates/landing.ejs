@@ -173,8 +173,9 @@
             <div class="card-header">
                 <h2>🔗 Quick links</h2>
                 <div class="actions">
-                    <a class="button" href="/shell/" target="_blank" rel="noopener noreferrer">Open interactive shell</a>
-                    <a class="button" href="/browser/vnc.html?autoconnect=true" target="_blank" rel="noopener noreferrer">Open browser</a>
+                    <a class="button" href="/shell/" target="_blank" rel="noopener noreferrer">Interactive shell</a>
+                    <a class="button" href="/shell?arg=-c&arg=source%20/app/sandbox_bashrc%3B%20claude" target="_blank" rel="noopener noreferrer" style="background: linear-gradient(120deg, #8b5cf6, #a855f7);">Claude Code</a>
+                    <a class="button" href="/shell?arg=-c&arg=source%20/app/sandbox_bashrc%3B%20opencode" target="_blank" rel="noopener noreferrer" style="background: linear-gradient(120deg, #f59e0b, #ef4444);">OpenCode</a>
                     <a class="button secondary" href="/llms.txt" target="_blank" rel="noopener noreferrer">LLMs.txt</a>
                 </div>
             </div>
@@ -277,6 +278,60 @@
             </div>
             </div>
         </section>
+
+        <section class="card">
+            <div class="collapsible-header" onclick="toggleCollapse('proxyConfig')">
+                <h3>🔀 Proxy Mappings</h3>
+                <button class="collapse-btn" id="proxyConfigBtn">Hide</button>
+            </div>
+
+            <div class="collapsible-content" id="proxyConfig">
+            <p class="muted" style="margin-bottom: 12px;">Map local web servers to paths. Changes are applied immediately and persist across restarts.</p>
+
+            <div id="proxyMappingsList" style="margin-bottom: 16px;"></div>
+
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end;">
+                <div style="flex: 1; min-width: 120px;">
+                    <label style="display: block; font-size: 12px; color: #94a3b8; margin-bottom: 4px;">Exposed Path</label>
+                    <input type="text" id="newProxyPath" placeholder="/openclaw" style="
+                        width: 100%; padding: 8px 12px; border-radius: 6px;
+                        background: #0c1220; border: 1px solid rgba(148, 163, 184, 0.2);
+                        color: #e2e8f0; font-family: inherit; font-size: 14px;
+                    ">
+                </div>
+                <div style="flex: 2; min-width: 250px;">
+                    <label style="display: block; font-size: 12px; color: #94a3b8; margin-bottom: 4px;">Local Service URL</label>
+                    <input type="text" id="newProxyTarget" placeholder="http://127.0.0.1:18789/openclaw" style="
+                        width: 100%; padding: 8px 12px; border-radius: 6px;
+                        background: #0c1220; border: 1px solid rgba(148, 163, 184, 0.2);
+                        color: #e2e8f0; font-family: inherit; font-size: 14px;
+                    ">
+                </div>
+                <button onclick="addProxyMapping()" style="
+                    padding: 8px 16px; border-radius: 6px; font-weight: 600;
+                    background: linear-gradient(120deg, #10b981, #84cc16);
+                    color: #fff; border: none; cursor: pointer;
+                    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+                    transition: all 0.3s ease; white-space: nowrap;
+                ">Add Mapping</button>
+            </div>
+
+            <p class="example-label" style="margin-top: 20px;">API Examples</p>
+            <div class="code-block-wrapper">
+                <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
+                <pre class="code-block"><span class="hl-comment"># Get current mappings</span>
+<span class="hl-curl">curl</span> <span class="hl-url"><%= serverUrl %>/proxy-config</span>
+
+<span class="hl-comment"># Add a mapping</span>
+<span class="hl-curl">curl</span> <span class="hl-flag">-X</span> <span class="hl-method">POST</span> <span class="hl-url"><%= serverUrl %>/proxy-config</span> \
+  <span class="hl-flag">-H</span> <span class="hl-string">"Content-Type: application/json"</span> \
+  <span class="hl-flag">-d</span> <span class="hl-string">'{"<span class="hl-key">path</span>": "/openclaw", "<span class="hl-key">target</span>": "http://127.0.0.1:18789/openclaw"}'</span>
+
+<span class="hl-comment"># Remove a mapping</span>
+<span class="hl-curl">curl</span> <span class="hl-flag">-X</span> <span class="hl-method">DELETE</span> <span class="hl-url"><%= serverUrl %>/proxy-config/openclaw</span></pre>
+            </div>
+            </div>
+        </section>
     </main>
 
     <script>
@@ -337,6 +392,106 @@
         
         // Refresh health status every 30 seconds
         setInterval(checkHealth, 30000);
+
+        // Proxy Mappings Management
+        async function loadProxyMappings() {
+            try {
+                const response = await fetch('/proxy-config');
+                const data = await response.json();
+                renderProxyMappings(data.mappings || []);
+            } catch (error) {
+                console.error('Failed to load proxy mappings:', error);
+            }
+        }
+        
+        function renderProxyMappings(mappings) {
+            const container = document.getElementById('proxyMappingsList');
+            
+            if (mappings.length === 0) {
+                container.innerHTML = '<p style="color: #64748b; font-style: italic;">No proxy mappings configured</p>';
+                return;
+            }
+            
+            container.innerHTML = mappings.map(m => `
+                <div style="
+                    display: flex; align-items: center; gap: 12px; 
+                    padding: 10px 14px; margin-bottom: 8px;
+                    background: #0c1220; border-radius: 6px;
+                    border: 1px solid rgba(148, 163, 184, 0.2);
+                ">
+                    <code style="flex: 1; background: none; border: none; padding: 0;">${m.path}</code>
+                    <span style="color: #64748b;">→</span>
+                    <code style="flex: 2; background: none; border: none; padding: 0;">${m.target}</code>
+                    <a href="${m.path}" target="_blank" style="
+                        color: #3b82f6; text-decoration: none; font-size: 13px;
+                    ">Open</a>
+                    <button onclick="deleteProxyMapping('${m.path}')" style="
+                        background: rgba(239, 68, 68, 0.2); color: #ef4444;
+                        border: none; padding: 4px 8px; border-radius: 4px;
+                        cursor: pointer; font-size: 12px;
+                    ">Remove</button>
+                </div>
+            `).join('');
+        }
+        
+        async function addProxyMapping() {
+            const pathInput = document.getElementById('newProxyPath');
+            const targetInput = document.getElementById('newProxyTarget');
+            
+            const path = pathInput.value.trim();
+            const target = targetInput.value.trim();
+            
+            if (!path || !target) {
+                alert('Both path and target are required');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/proxy-config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ path, target })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    renderProxyMappings(data.mappings);
+                    pathInput.value = '';
+                    targetInput.value = '';
+                } else {
+                    const error = await response.json();
+                    alert('Failed to add mapping: ' + error.error);
+                }
+            } catch (error) {
+                alert('Failed to add mapping: ' + error.message);
+            }
+        }
+        
+        async function deleteProxyMapping(path) {
+            if (!confirm(`Remove proxy mapping for ${path}?`)) return;
+            
+            try {
+                const response = await fetch('/proxy-config' + path, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    renderProxyMappings(data.mappings);
+                } else {
+                    const error = await response.json();
+                    alert('Failed to remove mapping: ' + error.error);
+                }
+            } catch (error) {
+                alert('Failed to remove mapping: ' + error.message);
+            }
+        }
+        
+        // Load proxy mappings on page load
+        loadProxyMappings();
+        
+        // Refresh proxy mappings every 10 seconds to catch file-based changes
+        setInterval(loadProxyMappings, 10000);
     </script>
 </body>
 </html>
