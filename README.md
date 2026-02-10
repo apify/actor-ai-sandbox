@@ -15,7 +15,7 @@ This monorepo contains four Apify Actors designed for AI-powered coding workflow
 | **[AI Sandbox](./sandbox)** | Core containerized environment with REST API, MCP server, and interactive shell | General AI agent development, sandboxed code execution |
 | **[Claude Code](./claude-code)** | One-click access to Anthropic's Claude Code | Instant Claude Code sessions on Apify |
 | **[OpenCode](./opencode)** | One-click access to open-source OpenCode | Free/open-source AI coding with multiple AI models support |
-| **[OpenClaw](./openclaw)** | One-click access to OpenClaw AI coding assistant | AI coding with Kimi K2.5 model via Apify OpenRouter |
+| **[OpenClaw](./openclaw)** | Clears your inbox, sends emails, manages your calendar, checks you in for flights | All from Apify platform |
 
 ## Architecture
 
@@ -117,4 +117,4 @@ cd ../openclaw && apify push
 - [Model Context Protocol](https://modelcontextprotocol.io/)
 - [Claude Code](https://code.claude.com)
 - [OpenCode](https://opencode.ai)
-- [OpenClaw](https://github.com/openclaw)
+- [OpenClaw](https://openclaw.ai/)

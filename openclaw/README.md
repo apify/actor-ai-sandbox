@@ -1,14 +1,10 @@
 # OpenClaw
 
-Run [OpenClaw](https://github.com/openclaw) on Apify infrastructure.
+Run [OpenClaw](https://openclaw.ai/) on Apify infrastructure.
 
 ## 🔥 What is OpenClaw?
 
-OpenClaw is an open-source AI coding assistant with:
-
-- Open-source and free to use
-- Support for multiple AI models
-- Gateway with control UI
+Clears your inbox, sends emails, manages your calendar, checks you in for flights. All from Apify platform.
 
 ## ⚙️ How It Works
 
@@ -33,7 +29,7 @@ On startup, it:
 |-------|-------------|---------|
 | `skills` | Skill packages to install (SKILLS.md files) | `["apify/agent-skills"]` |
 | `initShellScript` | Bash script to run before OpenClaw starts | - |
-| `idleTimeoutSeconds` | Shutdown after inactivity | 600 |
+| `idleTimeoutSeconds` | Shutdown after inactivity (0 = disabled) | 0 |
 
 ## 📚 Skills Support
 
@@ -42,8 +38,8 @@ This Actor supports [SKILLS.md](https://skills.sh/) files - specialized instruct
 ## 🎯 Use Cases
 
 - Run OpenClaw without local installation
-- Use AI models for coding tasks via Apify OpenRouter
-- Integrate OpenClaw into automation workflows
+- AI-powered task automation via chat interfaces
+- Integrate OpenClaw into Apify workflows
 
 ## 🔗 Links
 
