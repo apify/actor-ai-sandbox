@@ -27,9 +27,17 @@ import {
     writeFileBinary,
 } from './operations.js';
 import { initializePersistence, restoreMigrationState, saveMigrationState } from './persistence.js';
+import {
+    initializeProxyConfig,
+    getProxyMappings,
+    saveProxyConfig,
+    addProxyMapping,
+    removeProxyMapping,
+    onMappingsChange,
+} from './proxy-config.js';
 import { getLandingPageHTML, getLLMsMarkdown } from './templates/landing.js';
 import { SANDBOX_BASHRC, WELCOME_SCRIPT } from './templates/shell.js';
-import type { ActorInput } from './types.js';
+import type { ActorInput, ProxyMapping } from './types.js';
 
 // Track initialization state
 let initializationComplete = false;
@@ -160,6 +168,9 @@ initializationComplete = true;
 lastActivityAt = Date.now();
 log.info('Actor startup complete - ready for requests');
 
+// Initialize proxy configuration
+initializeProxyConfig(input?.proxyMappings);
+
 // Create Express app
 const app = express();
 
@@ -167,6 +178,15 @@ const app = express();
 app.use((req, _res, next) => {
     const isHealth = req.path === '/health';
     const isProbe = !!req.headers['x-apify-container-server-readiness-probe'];
+
+    // Debug: Log all incoming paths that start with /openclaw
+    if (req.path.startsWith('/openclaw')) {
+        log.info('DEBUG incoming request', {
+            path: req.path,
+            url: req.url,
+            originalUrl: req.originalUrl,
+        });
+    }
 
     if (!isHealth && !isProbe) {
         lastActivityAt = Date.now();
@@ -608,6 +628,93 @@ app.get('/llms.txt', (_req: Request, res: Response) => {
     res.send(getLLMsMarkdown({ serverUrl }));
 });
 
+// ============================================================================
+// Proxy Mappings Configuration Endpoints
+// ============================================================================
+
+// GET /proxy-config - Get current proxy mappings
+app.get('/proxy-config', (_req: Request, res: Response) => {
+    try {
+        const mappings = getProxyMappings();
+        res.json({ mappings });
+    } catch (error) {
+        log.error('Failed to get proxy config', { error: (error as Error).message });
+        res.status(500).json({ error: (error as Error).message });
+    }
+});
+
+// PUT /proxy-config - Replace all proxy mappings
+app.put('/proxy-config', (req: Request, res: Response) => {
+    try {
+        const { mappings } = req.body;
+
+        if (!Array.isArray(mappings)) {
+            res.status(400).json({ error: 'mappings must be an array' });
+            return;
+        }
+
+        // Validate each mapping
+        for (const mapping of mappings) {
+            if (!mapping.path || typeof mapping.path !== 'string') {
+                res.status(400).json({ error: 'Each mapping must have a path string' });
+                return;
+            }
+            if (!mapping.target || typeof mapping.target !== 'string') {
+                res.status(400).json({ error: 'Each mapping must have a target string (full URL like http://127.0.0.1:3000/myapp)' });
+                return;
+            }
+        }
+
+        saveProxyConfig(mappings);
+        log.info('Proxy config updated via API', { count: mappings.length });
+        res.json({ success: true, mappings: getProxyMappings() });
+    } catch (error) {
+        log.error('Failed to update proxy config', { error: (error as Error).message });
+        res.status(500).json({ error: (error as Error).message });
+    }
+});
+
+// POST /proxy-config - Add a single proxy mapping
+app.post('/proxy-config', (req: Request, res: Response) => {
+    try {
+        const { path, target } = req.body;
+
+        if (!path || typeof path !== 'string') {
+            res.status(400).json({ error: 'path is required (e.g., /myapp)' });
+            return;
+        }
+        if (!target || typeof target !== 'string') {
+            res.status(400).json({ error: 'target is required (full URL like http://127.0.0.1:3000/myapp)' });
+            return;
+        }
+
+        addProxyMapping({ path, target });
+        log.info('Proxy mapping added via API', { path, target });
+        res.json({ success: true, mappings: getProxyMappings() });
+    } catch (error) {
+        log.error('Failed to add proxy mapping', { error: (error as Error).message });
+        res.status(500).json({ error: (error as Error).message });
+    }
+});
+
+// DELETE /proxy-config/:path - Remove a proxy mapping
+app.delete('/proxy-config/*', (req: Request, res: Response) => {
+    try {
+        const pathToRemove = '/' + req.params[0];
+
+        const removed = removeProxyMapping(pathToRemove);
+        if (removed) {
+            log.info('Proxy mapping removed via API', { path: pathToRemove });
+            res.json({ success: true, removed: pathToRemove, mappings: getProxyMappings() });
+        } else {
+            res.status(404).json({ error: 'Mapping not found', path: pathToRemove });
+        }
+    } catch (error) {
+        log.error('Failed to remove proxy mapping', { error: (error as Error).message });
+        res.status(500).json({ error: (error as Error).message });
+    }
+});
+
 // Health check endpoint
 app.get('/health', (_req: Request, res: Response) => {
     if (!initializationComplete) {
@@ -879,6 +986,237 @@ server.on('upgrade', (req, socket, head) => {
         });
 
         browserWsProxy.ws(req, socket as Duplex, head);
+    } else {
+        // Check dynamic proxy mappings
+        let matchedMapping: ProxyMapping | null = null;
+        let matchedPath = '';
+
+        const reqPath = req.url || '/';
+        // Extract just the path without query string for matching
+        const pathOnly = reqPath.split('?')[0];
+        
+        for (const mapping of getProxyMappings()) {
+            if (pathOnly.startsWith(mapping.path) && mapping.path.length > matchedPath.length) {
+                matchedMapping = mapping;
+                matchedPath = mapping.path;
+            }
+        }
+
+        if (matchedMapping && dynamicProxies.has(matchedMapping.path)) {
+            const entry = dynamicProxies.get(matchedMapping.path)!;
+
+            // Get the extra path after the exposed path
+            let extraPath = pathOnly.slice(matchedMapping.path.length) || '';
+            const queryString = reqPath.includes('?') ? reqPath.slice(reqPath.indexOf('?')) : '';
+            
+            // Build the new URL: targetPath + extraPath + query string
+            // Avoid double slashes when joining paths
+            let finalPath = entry.targetPath;
+            if (extraPath) {
+                if (finalPath.endsWith('/') && extraPath.startsWith('/')) {
+                    extraPath = extraPath.slice(1);
+                }
+                if (!finalPath.endsWith('/') && !extraPath.startsWith('/')) {
+                    finalPath += '/';
+                }
+                finalPath += extraPath;
+            }
+            
+            req.url = finalPath + queryString;
+            if (!req.url.startsWith('/')) {
+                req.url = '/' + req.url;
+            }
+
+            log.info('Proxying dynamic WebSocket upgrade', {
+                exposedPath: matchedMapping.path,
+                targetUrl: entry.targetOrigin + req.url,
+            });
+
+            // Track activity
+            socket.on('data', () => {
+                lastActivityAt = Date.now();
+            });
+
+            entry.proxy.ws(req, socket as Duplex, head);
+        }
+    }
+});
+
+// ============================================================================
+// Dynamic Proxy Mappings for Local Servers
+// ============================================================================
+
+// Store for dynamic proxy instances - stores { proxy, targetOrigin, targetPath }
+interface ProxyEntry {
+    proxy: ReturnType<typeof httpProxy.createProxyServer>;
+    targetOrigin: string;
+    targetPath: string;
+}
+const dynamicProxies = new Map<string, ProxyEntry>();
+
+/**
+ * Create or update proxy for a mapping
+ */
+const setupProxyForMapping = (mapping: ProxyMapping): void => {
+    // Normalize target URL
+    let targetUrl = mapping.target;
+    if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+        targetUrl = `http://${targetUrl}`;
+    }
+
+    // Parse the target URL to extract origin and path
+    let targetOrigin: string;
+    let targetPath: string;
+    try {
+        const url = new URL(targetUrl);
+        targetOrigin = `${url.protocol}//${url.host}`;
+        targetPath = url.pathname || '/';
+        // Keep the target path as-is (preserve trailing slash if present)
+    } catch {
+        log.error('Invalid target URL', { target: targetUrl });
+        return;
+    }
+
+    // Remove existing proxy if any
+    if (dynamicProxies.has(mapping.path)) {
+        const oldEntry = dynamicProxies.get(mapping.path);
+        oldEntry?.proxy.close();
+    }
+
+    // Create new proxy targeting just the origin
+    const proxy = httpProxy.createProxyServer({
+        target: targetOrigin,
+        changeOrigin: true,
+        // Don't rewrite redirects - we handle path mapping ourselves
+        autoRewrite: false,
+    });
+
+    proxy.on('error', (err, _req, res) => {
+        log.error('Dynamic proxy error', { path: mapping.path, target: targetUrl, error: err.message });
+        if (res && 'writeHead' in res && !res.headersSent) {
+            res.writeHead(502, { 'Content-Type': 'text/plain' });
+            res.end(`Proxy error: target server at ${targetUrl} not available`);
+        }
+    });
+
+    // Rewrite Location headers in redirects to map target paths back to exposed paths
+    proxy.on('proxyRes', (proxyRes) => {
+        const location = proxyRes.headers['location'];
+        if (location && typeof location === 'string') {
+            log.info('Proxy response with Location header', { 
+                statusCode: proxyRes.statusCode,
+                location,
+                targetPath,
+                exposedPath: mapping.path
+            });
+            // If the location starts with the target path, rewrite it to the exposed path
+            if (location.startsWith(targetPath)) {
+                const newLocation = mapping.path + location.slice(targetPath.length);
+                proxyRes.headers['location'] = newLocation;
+                log.info('Rewrote redirect Location header', { 
+                    original: location, 
+                    rewritten: newLocation,
+                });
+            }
+        }
+    });
+
+    dynamicProxies.set(mapping.path, { proxy, targetOrigin, targetPath });
+    log.info('Proxy configured', { exposedPath: mapping.path, targetOrigin, targetPath });
+};
+
+/**
+ * Remove proxy for a path
+ */
+const removeProxyForPath = (path: string): void => {
+    if (dynamicProxies.has(path)) {
+        const entry = dynamicProxies.get(path);
+        entry?.proxy.close();
+        dynamicProxies.delete(path);
+        log.info('Proxy removed', { path });
+    }
+};
+
+// Initialize proxies from current config
+for (const mapping of getProxyMappings()) {
+    setupProxyForMapping(mapping);
+}
+
+// Listen for config changes and update proxies
+onMappingsChange((newMappings) => {
+    // Find removed mappings
+    const newPaths = new Set(newMappings.map((m) => m.path));
+    for (const path of dynamicProxies.keys()) {
+        if (!newPaths.has(path)) {
+            removeProxyForPath(path);
+        }
+    }
+
+    // Add/update mappings
+    for (const mapping of newMappings) {
+        setupProxyForMapping(mapping);
+    }
+});
+
+// Dynamic proxy route handler - must be added BEFORE the 404 handler
+// This catches all requests to mapped paths
+app.use((req: Request, res: Response, next) => {
+    // Find matching proxy mapping (longest path match)
+    let matchedMapping: ProxyMapping | null = null;
+    let matchedPath = '';
+
+    for (const mapping of getProxyMappings()) {
+        if (req.path.startsWith(mapping.path) && mapping.path.length > matchedPath.length) {
+            matchedMapping = mapping;
+            matchedPath = mapping.path;
+        }
+    }
+
+    if (matchedMapping && dynamicProxies.has(matchedMapping.path)) {
+        const entry = dynamicProxies.get(matchedMapping.path)!;
+
+        // Get the extra path after the exposed path (e.g., /openclaw/foo -> /foo)
+        let extraPath = req.path.slice(matchedMapping.path.length) || '';
+        
+        // Build the new URL: targetPath + extraPath + query string
+        const queryString = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+        
+        // Avoid double slashes when joining paths
+        let finalPath = entry.targetPath;
+        if (extraPath) {
+            // If targetPath ends with / and extraPath starts with /, remove one
+            if (finalPath.endsWith('/') && extraPath.startsWith('/')) {
+                extraPath = extraPath.slice(1);
+            }
+            // If neither has a slash between them, add one
+            if (!finalPath.endsWith('/') && !extraPath.startsWith('/')) {
+                finalPath += '/';
+            }
+            finalPath += extraPath;
+        }
+        
+        req.url = finalPath + queryString;
+        
+        // Ensure URL starts with /
+        if (!req.url.startsWith('/')) {
+            req.url = '/' + req.url;
+        }
+
+        log.info('Proxying request', {
+            originalPath: req.path,
+            exposedPath: matchedMapping.path,
+            extraPath,
+            targetPath: entry.targetPath,
+            finalUrl: req.url,
+            targetUrl: entry.targetOrigin + req.url,
+        });
+
+        // Track activity
+        lastActivityAt = Date.now();
+
+        entry.proxy.web(req, res);
+    } else {
+        next();
     }
 });
 
