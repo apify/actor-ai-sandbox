@@ -1,4 +1,4 @@
-# OpenClaw
+# OpenClaw Assistant
 
 Run [OpenClaw](https://openclaw.ai/) on Apify infrastructure.
 
