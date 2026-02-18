@@ -7,7 +7,7 @@
  */
 
 import { exec } from 'node:child_process';
-import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { promisify } from 'node:util';
 
 import { Actor, log } from 'apify';
@@ -23,6 +23,16 @@ import {
 } from './consts.js';
 
 const execAsync = promisify(exec);
+
+/** Milliseconds per second, used for utimesSync which expects seconds */
+const MS_PER_SECOND = 1000;
+
+/**
+ * Guard against clock skew when restoring the startup marker timestamp.
+ * If the manifest timestamp is somehow in the future relative to the current
+ * wall clock, we clamp it to (now - this guard) to avoid missing files.
+ */
+const CLOCK_SKEW_GUARD_MS = 1000;
 
 /**
  * Migration manifest structure
@@ -44,7 +54,10 @@ export interface MigrationManifest {
 }
 
 /**
- * Initialize persistence system by creating startup marker
+ * Initialize persistence system by creating startup marker.
+ * IMPORTANT: This must be called both on fresh starts AND after migration restore.
+ * Without the marker, findChangedFiles() returns [] and the next save would
+ * overwrite good state with an empty snapshot.
  */
 export const initializePersistence = (): void => {
     try {
@@ -54,6 +67,47 @@ export const initializePersistence = (): void => {
         log.error('Failed to create startup marker', { error: (error as Error).message });
         throw error;
     }
+};
+
+/**
+ * Restore the startup marker timestamp from the migration manifest.
+ *
+ * When files are restored from a tarball, `tar` preserves their original mtimes.
+ * If we create a fresh marker (mtime = now), `find -newer marker` will miss all
+ * restored files because they appear older than the marker. This causes the next
+ * save to produce an empty tarball, losing all state on the subsequent resurrect.
+ *
+ * Fix: set the marker's mtime back to the original startup timestamp from the
+ * manifest. This ensures `find -newer` catches both restored files AND any new
+ * files created after restoration.
+ *
+ * @param startupTimestampMs - The original startup marker mtime in milliseconds
+ */
+export const restoreStartupMarkerTimestamp = (startupTimestampMs: number): void => {
+    if (!Number.isFinite(startupTimestampMs) || startupTimestampMs <= 0) {
+        log.error('Invalid startupTimestamp from manifest, skipping marker restore', {
+            startupTimestampMs,
+        });
+        return;
+    }
+
+    // Clamp to prevent the marker from being set to the future (clock skew protection)
+    const nowMs = Date.now();
+    const clampedMs = Math.min(startupTimestampMs, nowMs - CLOCK_SKEW_GUARD_MS);
+    const markerSeconds = clampedMs / MS_PER_SECOND;
+
+    // Ensure marker file exists
+    if (!existsSync(STARTUP_MARKER_PATH)) {
+        writeFileSync(STARTUP_MARKER_PATH, '');
+    }
+
+    // Set both atime and mtime to the original startup timestamp
+    utimesSync(STARTUP_MARKER_PATH, markerSeconds, markerSeconds);
+
+    log.info('Startup marker timestamp restored from manifest', {
+        originalTimestamp: new Date(startupTimestampMs).toISOString(),
+        appliedTimestamp: new Date(clampedMs).toISOString(),
+    });
 };
 
 /**
@@ -76,10 +130,12 @@ export const findChangedFiles = async (): Promise<string[]> => {
         const command = `find / -xdev ${excludeArgs} -type f -newer ${STARTUP_MARKER_PATH} -print 2>/dev/null || true`;
 
         log.debug('Running find command', { command });
+        const startTime = Date.now();
         const { stdout } = await execAsync(command, {
             maxBuffer: 50 * 1024 * 1024, // 50 MB buffer for long file lists
             timeout: 30000, // 30 second timeout
         });
+        const findDurationMs = Date.now() - startTime;
 
         const files = stdout
             .trim()
@@ -90,10 +146,10 @@ export const findChangedFiles = async (): Promise<string[]> => {
                 return !MIGRATION_EXCLUDED_PATHS.some((excluded) => f.startsWith(excluded));
             });
 
-        log.info('Found changed files', { count: files.length });
+        log.info('Found changed files', { count: files.length, findDurationMs });
 
         if (files.length > 0) {
-            log.debug('Sample of changed files', { sample: files.slice(0, 10) });
+            log.debug('Changed files sample', { sample: files.slice(0, 10) });
         }
 
         return files;
@@ -264,6 +320,7 @@ export const createMigrationTarball = async (files: string[]): Promise<string> =
  * Save migration state to Key-Value Store
  */
 export const saveMigrationState = async (): Promise<void> => {
+    const saveStartTime = Date.now();
     log.info('Starting migration state save...');
 
     try {
@@ -314,12 +371,19 @@ export const saveMigrationState = async (): Promise<void> => {
         // Step 5: Upload manifest
         await Actor.setValue(KV_MIGRATION_MANIFEST, manifest);
 
+        const saveDurationMs = Date.now() - saveStartTime;
         log.info('Migration state saved successfully', {
-            manifestKey: KV_MIGRATION_MANIFEST,
-            tarballKey: KV_MIGRATION_TARBALL,
+            durationMs: saveDurationMs,
+            files: changedFiles.length,
+            aptPackages: packages.apt.length,
+            pipPackages: packages.pip.length,
         });
     } catch (error) {
-        log.error('Failed to save migration state', { error: (error as Error).message });
+        const saveDurationMs = Date.now() - saveStartTime;
+        log.error('Failed to save migration state', {
+            error: (error as Error).message,
+            durationMs: saveDurationMs,
+        });
         // Don't throw - let Actor shutdown continue
     }
 };
@@ -500,7 +564,19 @@ export const restoreMigrationState = async (): Promise<boolean> => {
         // Step 5: Reinstall packages
         await reinstallPackages(manifest.packages);
 
-        log.info('Migration state restored successfully');
+        // Step 6: Restore startup marker timestamp from the manifest.
+        // CRITICAL: tar preserves original file mtimes, but a fresh marker would have
+        // mtime = NOW. This means `find -newer marker` would miss all restored files
+        // (they appear "older" than the marker), causing the next save to produce an
+        // empty tarball. Setting the marker back to the original startup timestamp
+        // ensures find catches both restored files AND any new files created after restore.
+        restoreStartupMarkerTimestamp(manifest.startupTimestamp);
+
+        log.info('Migration state restored successfully', {
+            files: manifest.changedFiles.count,
+            aptPackages: manifest.packages.apt.length,
+            pipPackages: manifest.packages.pip.length,
+        });
 
         return true;
     } catch (error) {

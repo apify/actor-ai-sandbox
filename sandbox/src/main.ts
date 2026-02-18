@@ -143,6 +143,10 @@ if (!isLocalMode) {
 }
 
 // Initialize persistence system (create startup marker for tracking changes)
+// Only needed on fresh starts — after migration restore, the marker is already
+// set with the correct timestamp by restoreStartupMarkerTimestamp() inside
+// restoreMigrationState(). This ensures `find -newer marker` catches both
+// restored files (which have their original mtimes from tar) and any new files.
 if (!isLocalMode && !restoredFromMigration) {
     try {
         initializePersistence();
