@@ -57,7 +57,8 @@ RUN npm install -g tsx
 RUN npm install -g apify-cli
 
 # Install Apify MCP CLI globally (package: @apify/mcpc, binary: mcpc)
-RUN npm install -g @apify/mcpc
+# Using beta for named connection support (mcpc connect ... @session)
+RUN npm install -g @apify/mcpc@beta
 
 # Install Claude Code CLI
 RUN curl -fsSL https://claude.ai/install.sh | bash

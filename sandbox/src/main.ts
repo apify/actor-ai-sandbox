@@ -330,9 +330,9 @@ app.get('/fs', handleGetRoot);
 app.get('/fs/', handleGetRoot);
 
 // HEAD /fs/* - Get file or directory metadata
-app.head('/fs/*', async (req: Request, res: Response) => {
+app.head('/fs/*path', async (req: Request, res: Response) => {
     try {
-        const filePath = req.params[0] || '/';
+        const filePath = String(req.params.path || '/');
 
         log.info('REST HEAD /fs/* request received', { path: filePath });
 
@@ -370,9 +370,9 @@ app.head('/fs/*', async (req: Request, res: Response) => {
 });
 
 // GET /fs/* - Read file or list directory
-app.get('/fs/*', async (req: Request, res: Response) => {
+app.get('/fs/*path', async (req: Request, res: Response) => {
     try {
-        const filePath = req.params[0] || '/';
+        const filePath = String(req.params.path || '/');
         const download = req.query.download === '1';
 
         log.info('REST GET /fs/* request received', { path: filePath, download });
@@ -455,9 +455,9 @@ app.get('/fs/*', async (req: Request, res: Response) => {
 });
 
 // PUT /fs/* - Write/replace file
-app.put('/fs/*', express.raw({ type: '*/*', limit: '500mb' }), async (req: Request, res: Response) => {
+app.put('/fs/*path', express.raw({ type: '*/*', limit: '500mb' }), async (req: Request, res: Response) => {
     try {
-        const filePath = req.params[0];
+        const filePath = String(req.params.path || '');
         const content = req.body;
 
         log.info('REST PUT /fs/* request received', {
@@ -496,9 +496,9 @@ app.put('/fs/*', express.raw({ type: '*/*', limit: '500mb' }), async (req: Reque
 });
 
 // POST /fs/* - Create directory or append to file
-app.post('/fs/*', express.raw({ type: '*/*', limit: '500mb' }), async (req: Request, res: Response) => {
+app.post('/fs/*path', express.raw({ type: '*/*', limit: '500mb' }), async (req: Request, res: Response) => {
     try {
-        const filePath = req.params[0];
+        const filePath = String(req.params.path || '');
         const mkdir = req.query.mkdir === '1';
         const append = req.query.append === '1';
 
@@ -563,9 +563,9 @@ app.post('/fs/*', express.raw({ type: '*/*', limit: '500mb' }), async (req: Requ
 });
 
 // DELETE /fs/* - Delete file or directory
-app.delete('/fs/*', async (req: Request, res: Response) => {
+app.delete('/fs/*path', async (req: Request, res: Response) => {
     try {
-        const filePath = req.params[0];
+        const filePath = String(req.params.path || '');
         const recursive = req.query.recursive === '1';
 
         log.info('REST DELETE /fs/* request received', { path: filePath, recursive });
@@ -702,9 +702,9 @@ app.post('/proxy-config', (req: Request, res: Response) => {
 });
 
 // DELETE /proxy-config/:path - Remove a proxy mapping
-app.delete('/proxy-config/*', (req: Request, res: Response) => {
+app.delete('/proxy-config/*path', (req: Request, res: Response) => {
     try {
-        const pathToRemove = '/' + req.params[0];
+        const pathToRemove = '/' + String(req.params.path || '');
 
         const removed = removeProxyMapping(pathToRemove);
         if (removed) {
@@ -868,7 +868,7 @@ if (!isLocalMode) {
 }
 
 // Manual HTTP Proxy for ttyd
-app.all('/shell*', (req, res) => {
+app.all('/shell{*rest}', (req, res) => {
     let path = req.url.replace(/^\/shell/, '') || '/';
     // Ensure path starts with / (handle query strings like ?arg=...)
     if (path.startsWith('?')) {

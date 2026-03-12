@@ -132,7 +132,7 @@ const client = new ApifyClient({ token });
 **Bash/Shell:**
 ```bash
 echo $APIFY_TOKEN  # ✅ Already available - use it directly!
-mcpc --header "Authorization: Bearer $APIFY_TOKEN" https://mcp.apify.com tools-list --json
+mcpc @apify tools-list --json
 ```
 
 **No setup required:** The token is pre-configured. Just reference it and start building!
@@ -144,6 +144,25 @@ mcpc --header "Authorization: Bearer $APIFY_TOKEN" https://mcp.apify.com tools-l
 
 Access Apify platform features and thousands of Actors via `mcpc` tool.
 
+### 🚨 CRITICAL: Connect to Apify MCP Server First
+
+**Before using any MCP commands, you MUST create a named connection.** Direct URL connections are deprecated — always use named sessions with `@apify`.
+
+**One-time setup (run once per session):**
+
+```bash
+# Create a named connection with auth (credentials stored securely in OS keychain)
+mcpc connect mcp.apify.com @apify --header "Authorization: Bearer $APIFY_TOKEN"
+```
+
+This creates a persistent session called `@apify`. All subsequent commands use `mcpc @apify ...` instead of passing the URL and headers every time.
+
+**Tear down when done (optional):**
+
+```bash
+mcpc @apify close
+```
+
 ### 🚨 CRITICAL: ALWAYS List Tools First - DO NOT Guess Tool Names
 
 **BEFORE calling ANY MCP tool, you MUST list available tools first.**
@@ -154,16 +173,16 @@ Tool names change and you CANNOT rely on documentation or memory. **NEVER guess 
 
 ```bash
 # ✅ CORRECT - List ALL tools (read full output)
-mcpc --header "Authorization: Bearer $APIFY_TOKEN" https://mcp.apify.com tools-list --json
+mcpc @apify tools-list --json
 ```
 
 **❌ NEVER DO THIS - Truncating output:**
 
 ```bash
 # ❌ WRONG - Loses important tools and descriptions
-mcpc ... tools-list --json | head -100
-mcpc ... tools-list --json | head
-mcpc ... tools-list --json 2>&1 | head -100
+mcpc @apify tools-list --json | head -100
+mcpc @apify tools-list --json | head
+mcpc @apify tools-list --json 2>&1 | head -100
 ```
 
 **Why this matters:** The Bash tool automatically handles large output. Truncating with `head`, `tail`, or similar commands will cut off tool names and descriptions you need. Always let the full output be captured.
@@ -179,36 +198,50 @@ mcpc ... tools-list --json 2>&1 | head -100
 
 ```bash
 # ❌ DO NOT DO THIS - tool name might not exist
-mcpc ... tools-call apify-store-search ...  # Tool doesn't exist
+mcpc @apify tools-call apify-store-search ...  # Tool doesn't exist
 
 # ❌ DO NOT DO THIS - truncating output
-mcpc ... tools-list --json 2>&1 | head -100  # Missing tools!
+mcpc @apify tools-list --json 2>&1 | head -100  # Missing tools!
+
+# ❌ DO NOT DO THIS - deprecated direct URL connection
+mcpc --header "Authorization: Bearer $APIFY_TOKEN" https://mcp.apify.com tools-list --json
 ```
 
-**✅ CORRECT - List once, use exact names:**
+**✅ CORRECT - Connect once, list once, use exact names:**
 
 ```bash
+# Step 0: Create named connection ONCE (if not already done)
+mcpc connect mcp.apify.com @apify --header "Authorization: Bearer $APIFY_TOKEN"
+
 # Step 1: List tools ONCE to discover available tools (NO truncation)
-mcpc --header "Authorization: Bearer $APIFY_TOKEN" https://mcp.apify.com tools-list --json
+mcpc @apify tools-list --json
 
 # Step 2: Use exact tool name from the full list (e.g., "search-actors")
-mcpc --header "Authorization: Bearer $APIFY_TOKEN" https://mcp.apify.com tools-call search-actors '{"query": "instagram"}' --json
+mcpc @apify tools-call search-actors '{"query": "instagram"}' --json
 ```
 
 ### Basic MCP Commands
 
-**Call tools (one-off pattern recommended):**
+**Setup (run once per session):**
 
 ```bash
-mcpc --header "Authorization: Bearer $APIFY_TOKEN" https://mcp.apify.com tools-call <TOOL_NAME> '{"param": "value"}' --json
+# Create named connection (credentials stored securely in OS keychain)
+mcpc connect mcp.apify.com @apify --header "Authorization: Bearer $APIFY_TOKEN"
 ```
 
-**Optional persistent session:**
+**Call tools via named session:**
 
 ```bash
-mcpc --header "Authorization: Bearer $APIFY_TOKEN" https://mcp.apify.com connect @apify
-mcpc @apify tools-list --json
-mcpc @apify close
+mcpc @apify tools-call <TOOL_NAME> '{"param": "value"}' --json
+```
+
+**Other session commands:**
+
+```bash
+mcpc @apify                    # Show session info & server capabilities
+mcpc @apify tools-list --json  # List available tools
+mcpc @apify shell              # Interactive REPL
+mcpc @apify close              # Tear down session
 ```
 
 ## Using Apify Actors
@@ -226,36 +259,42 @@ Apify MCP server provides access to thousands of pre-built Actors for web scrapi
 
 **DO NOT call Actors directly via MCP tools!** Instead, use this script-based approach:
 
-1. **🚨 List MCP tools FIRST** - REQUIRED before any MCP operation (do this ONCE, read FULL output):
+1. **🚨 Connect to Apify MCP FIRST** - REQUIRED before any MCP operation (do this ONCE):
 
     ```bash
-    mcpc --header "Authorization: Bearer $APIFY_TOKEN" https://mcp.apify.com tools-list --json
+    mcpc connect mcp.apify.com @apify --header "Authorization: Bearer $APIFY_TOKEN"
     ```
 
-2. **Search for Actor** - Use the exact tool name from Step 1 (e.g., `search-actors`):
+2. **🚨 List MCP tools** - REQUIRED before calling any tool (do this ONCE, read FULL output):
 
     ```bash
-    mcpc --header "Authorization: Bearer $APIFY_TOKEN" https://mcp.apify.com tools-call search-actors '{"query": "instagram"}' --json
+    mcpc @apify tools-list --json
     ```
 
-3. **Fetch Actor details** - Get README and input/output schema (e.g., using `fetch-actor-details`):
+3. **Search for Actor** - Use the exact tool name from Step 2 (e.g., `search-actors`):
 
     ```bash
-    mcpc --header "Authorization: Bearer $APIFY_TOKEN" https://mcp.apify.com tools-call fetch-actor-details '{"actor": "apify/instagram-scraper"}' --json
+    mcpc @apify tools-call search-actors '{"query": "instagram"}' --json
     ```
 
-4. **Write TWO separate scripts** to minimize costly errors:
+4. **Fetch Actor details** - Get README and input/output schema (e.g., using `fetch-actor-details`):
+
+    ```bash
+    mcpc @apify tools-call fetch-actor-details '{"actor": "apify/instagram-scraper"}' --json
+    ```
+
+5. **Write TWO separate scripts** to minimize costly errors:
     - **Script 1**: Run Actor and save results to file (expensive operation - isolate it)
     - **Script 2**: Generate signed URLs from saved file (cheap - can re-run if needed)
     - **Why split?** Running Actors is expensive and time-consuming. If URL generation fails, you can fix and re-run just that part without re-running the Actor.
     - **Python scripts**: Write to `/sandbox/py/` (choose when you need pandas, data analysis, or Python ecosystem)
     - **JS/TS scripts**: Write to `/sandbox/js-ts/` (choose for general web scraping tasks or JavaScript ecosystem)
 
-5. **Run Script 1** - Execute the Actor and save dataset ID to file
+6. **Run Script 1** - Execute the Actor and save dataset ID to file
 
-6. **Run Script 2** - Generate signed public URLs from the saved dataset ID
+7. **Run Script 2** - Generate signed public URLs from the saved dataset ID
 
-7. **Share results** - Provide the signed public URLs to the user
+8. **Share results** - Provide the signed public URLs to the user
 
 ### Python Script Examples (using apify-client)
 
@@ -444,13 +483,16 @@ cat /sandbox/py/report.pdf | apify actor set-value report.pdf --content-type app
 
 ### MCP Usage
 
-- **🚨 CRITICAL: List MCP tools ONLY ONCE** - Run `tools-list` once at start, then use the full output for all subsequent calls
+- **🚨 CRITICAL: Create named connection FIRST** - Run `mcpc connect mcp.apify.com @apify --header "Authorization: Bearer $APIFY_TOKEN"` once at start
+- **🚨 CRITICAL: NEVER use deprecated direct URL connections** - Always use `mcpc @apify ...` instead of `mcpc --header ... https://mcp.apify.com ...`
+- **🚨 CRITICAL: List MCP tools ONLY ONCE** - Run `mcpc @apify tools-list --json` once at start, then use the full output for all subsequent calls
 - **🚨 CRITICAL: NEVER guess tool names** - Tool names change frequently, always use exact names from the list
 - **🚨 CRITICAL: NEVER truncate tools-list output** - Do NOT use `| head`, `| tail`, `| grep`, or any pipe that cuts output
 - **Why no truncation?** The Bash tool handles large output automatically - truncating loses critical tool names and descriptions
-- Use one-off commands (`tools-call`) as primary pattern for MCP
+- Use `mcpc @apify tools-call <TOOL> '{}' --json` as primary pattern for MCP
 - Always use `--json` flag for structured output
 - Read tool descriptions carefully after listing to understand parameters
+- Use `mcpc @apify close` to tear down session when done
 
 ### Actor Usage - Split Script Strategy
 
