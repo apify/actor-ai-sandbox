@@ -374,6 +374,25 @@ export const setupExecutionEnvironment = async (input: {
 };
 
 /**
+ * User-supplied environment variables (parsed from the secret `envVars` input).
+ * Held in module scope so all execution paths share the same source of truth.
+ */
+let userEnvVars: Record<string, string> = {};
+
+/**
+ * Set the user-supplied environment variables. Called once during startup
+ * after parsing the actor input.
+ */
+export const setUserEnvVars = (vars: Record<string, string>): void => {
+    userEnvVars = { ...vars };
+};
+
+/**
+ * Get the parsed user-supplied environment variables (read-only copy).
+ */
+export const getUserEnvVars = (): Record<string, string> => ({ ...userEnvVars });
+
+/**
  * Get environment variables for code execution
  * Returns environment with paths to Python venv and Node modules
  */
@@ -384,6 +403,10 @@ export const getExecutionEnvironment = (): NodeJS.ProcessEnv => {
     Object.keys(process.env).forEach((key) => {
         env[key] = process.env[key];
     });
+
+    // Layer in user-supplied vars before our infra paths so the sandbox
+    // PATH/NODE_PATH/VIRTUAL_ENV/PYTHONHOME below always win.
+    Object.assign(env, userEnvVars);
 
     // Add Python venv to PATH
     const currentPath = env.PATH || '';

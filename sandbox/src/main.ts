@@ -12,7 +12,8 @@ import express from 'express';
 import httpProxy from 'http-proxy';
 
 import { SANDBOX_DIR } from './consts.js';
-import { executeInitScript, setupExecutionEnvironment } from './environment.js';
+import { parseEnvVars } from './env-vars.js';
+import { executeInitScript, setupExecutionEnvironment, setUserEnvVars } from './environment.js';
 import { createMcpServer } from './mcp.js';
 import {
     appendFile,
@@ -61,11 +62,18 @@ const serverUrl = process.env.ACTOR_WEB_SERVER_URL || `http://localhost:${port}`
 
 // Retrieve Actor input
 const input = await Actor.getInput<ActorInput>();
+
+// Parse and register user-supplied environment variables. Apify decrypts the
+// secret input at runtime; we never log values, only key names.
+const userEnvVars = parseEnvVars(input?.envVars);
+setUserEnvVars(userEnvVars);
+
 log.info('Actor input retrieved', {
     mode: isLocalMode ? 'local' : 'production',
     hasNodeDependencies: !!input?.nodeDependencies && Object.keys(input.nodeDependencies).length > 0,
     hasPythonRequirements: !!input?.pythonRequirementsTxt?.trim().length,
     hasInitScript: !!input?.initShellScript?.trim().length,
+    envVarKeys: Object.keys(userEnvVars),
 });
 
 // Check for migration state and restore if available
@@ -850,7 +858,7 @@ const spawnTtyd = () => {
     const ttyd = spawn('ttyd', ['-p', shellPort.toString(), '-a', '-W', 'bash', '--rcfile', '/app/sandbox_bashrc'], {
         stdio: 'ignore',
         cwd: SANDBOX_DIR,
-        env: process.env,
+        env: { ...process.env, ...userEnvVars },
     });
 
     ttyd.on('error', (err) => {

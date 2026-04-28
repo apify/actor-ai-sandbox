@@ -33,6 +33,13 @@
         "editor": "textarea",
         "prefill": "apt-get update\n# apt-get install -y curl"
       },
+      "envVars": {
+        "title": "Environment Variables",
+        "type": "string",
+        "description": "Secret environment variables exposed to the sandbox shell, init script, and code execution. Encrypted at rest by Apify and decrypted only at runtime.\n\nAccepts either format:\n- **KEY=VALUE per line** (dotenv-style):\n  ```\n  OPENAI_API_KEY=sk-...\n  MY_VAR=hello\n  ```\n- **JSON object**:\n  ```\n  {\"OPENAI_API_KEY\": \"sk-...\", \"MY_VAR\": \"hello\"}\n  ```",
+        "editor": "textarea",
+        "isSecret": true
+      },
        "idleTimeoutSeconds": {
          "title": "Idle Timeout Seconds",
          "type": "integer",
