@@ -42,6 +42,13 @@ export interface ActorInput {
     initShellScript?: string;
 
     /**
+     * Secret environment variables exposed to the sandbox shell, init script,
+     * and code execution. Accepts either dotenv-style KEY=VALUE lines or a JSON
+     * object. Encrypted at rest by Apify (isSecret in input schema).
+     */
+    envVars?: string;
+
+    /**
      * Graceful shutdown timeout in seconds if no activity is detected.
      * Activity includes HTTP requests and shell interaction.
      * @default 600 (10 minutes)
