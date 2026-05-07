@@ -30,6 +30,10 @@ RUN npm install
 # Compile TypeScript to JavaScript
 RUN npm run build
 
+# Run unit tests; build fails if tests fail. Test files live under tests/ and
+# are never copied into the runtime stage, so they don't affect image size.
+RUN npm test
+
 # Stage 2: Runtime - Node.js image
 FROM node:24-trixie-slim
 
