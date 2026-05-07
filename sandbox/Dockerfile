@@ -54,7 +54,8 @@ RUN apt-get update && apt-get install -y \
 RUN npm install -g tsx
 
 # Install Apify CLI globally
-RUN npm install -g apify-cli
+# --ignore-scripts works around apify-client's `only-allow pnpm` preinstall hook
+RUN npm install -g --ignore-scripts apify-cli
 
 # Install Apify MCP CLI globally (package: @apify/mcpc, binary: mcpc)
 # Using beta for named connection support (mcpc connect ... @session)
@@ -80,7 +81,7 @@ RUN mkdir -p /sandbox/py && chmod 755 /sandbox/py && \
 RUN mkdir -p /sandbox/js-ts && chmod 755 /sandbox/js-ts && \
     cd /sandbox/js-ts && \
     echo '{"name":"apify-sandbox-js-ts","version":"1.0.0","description":"Sandbox for JS/TS code execution","type":"module","dependencies":{"apify-client":"*"}}' > package.json && \
-    npm install && \
+    npm install --ignore-scripts && \
     echo "apify-client pre-installed in Node.js environment"
 
 # Copy AGENTS.md to sandbox for AI coding agents
