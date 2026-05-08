@@ -30,6 +30,10 @@ RUN npm install
 # Compile TypeScript to JavaScript
 RUN npm run build
 
+# Run unit tests (fast, no platform dependency). E2E tests are run separately
+# via `npm run test:e2e` since they require a deployed Apify run.
+RUN npm run test:unit
+
 # Stage 2: Runtime - Node.js image
 FROM node:24-trixie-slim
 
