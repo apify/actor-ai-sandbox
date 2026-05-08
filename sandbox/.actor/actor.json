@@ -28,7 +28,7 @@
                 "prefill": ["apify/agent-skills"]
             },
             "nodeDependencies": {
-                "title": "Node.js Dependencies",
+                "title": "Node.js dependencies",
                 "type": "object",
                 "description": "npm package.json dependencies object for JavaScript and TypeScript code execution (/sandbox/js-ts). Paste your dependencies in npm format. Example: {\"zod\": \"^3.0\", \"axios\": \"latest\"}",
                 "editor": "json",
