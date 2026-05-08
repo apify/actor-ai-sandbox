@@ -28,7 +28,7 @@
                 "prefill": ["apify/agent-skills"]
             },
             "nodeDependencies": {
-                "title": "Node.js Dependencies",
+                "title": "Node.js dependencies",
                 "type": "object",
                 "description": "npm package.json dependencies object for JavaScript and TypeScript code execution (/sandbox/js-ts). Paste your dependencies in npm format. Example: {\"zod\": \"^3.0\", \"axios\": \"latest\"}",
                 "editor": "json",
@@ -51,7 +51,7 @@
             "envVars": {
                 "title": "Environment Variables",
                 "type": "string",
-                "description": "Secret environment variables exposed to the sandbox shell, init script, and code execution. Encrypted at rest by Apify and decrypted only at runtime.\n\nAccepts either format:\n- **KEY=VALUE per line** (dotenv-style):\n  ```\n  OPENAI_API_KEY=sk-...\n  MY_VAR=hello\n  ```\n- **JSON object**:\n  ```\n  {\"OPENAI_API_KEY\": \"sk-...\", \"MY_VAR\": \"hello\"}\n  ```",
+                "description": "Secret env vars exposed **only to the init bash script**, then deleted before the shell, MCP server, and code execution start. Encrypted at rest by Apify.\n\nAccepts `KEY=VALUE` per line or a JSON object, e.g. `{\"GITHUB_TOKEN\": \"ghp_...\"}`.",
                 "editor": "textarea",
                 "isSecret": true
             },
