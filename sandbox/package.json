@@ -45,7 +45,7 @@
         "lint:fix": "eslint --fix",
         "format": "prettier --write .",
         "format:check": "prettier --check .",
-        "test": "npm run test:unit",
+        "test": "npm run test:unit && npm run test:e2e",
         "test:unit": "node --import tsx --test tests/unit/*.test.ts",
         "test:e2e": "tsx tests/e2e.ts"
     },
