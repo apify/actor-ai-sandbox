@@ -35,28 +35,28 @@
                 "prefill": {}
             },
             "pythonRequirementsTxt": {
-                "title": "Python Requirements",
+                "title": "Python requirements",
                 "type": "string",
                 "description": "Python requirements in requirements.txt format for Python code execution (/sandbox/py). Paste your dependencies one per line. Example:\n requests==2.31.0\npandas>=2.0.0",
                 "editor": "textarea",
                 "prefill": ""
             },
             "initShellScript": {
-                "title": "Initialization Script",
+                "title": "Initialization script",
                 "type": "string",
                 "description": "Optional bash script to customize the sandbox environment. Runs after library installation in /sandbox directory. Use for installing system packages, creating directories, or other setup tasks.",
                 "editor": "textarea",
                 "prefill": "apt-get update\n# apt-get install -y curl\n# mkdir /sandbox/data"
             },
             "envVars": {
-                "title": "Environment Variables",
+                "title": "Environment variables",
                 "type": "string",
                 "description": "Secret env vars exposed **only to the init bash script**, then deleted before the shell, MCP server, and code execution start. Encrypted at rest by Apify.\n\nAccepts `KEY=VALUE` per line or a JSON object, e.g. `{\"GITHUB_TOKEN\": \"ghp_...\"}`.",
                 "editor": "textarea",
                 "isSecret": true
             },
             "idleTimeoutSeconds": {
-                "title": "Idle Timeout Seconds",
+                "title": "Idle timeout seconds",
                 "type": "integer",
                 "description": "The container will automatically shut down after this period of inactivity (no requests, no shell interaction). Set to 0 to disable. Recommended to set Actor execution timeout to 0 (infinite) when using this.",
                 "default": 600,
@@ -64,7 +64,7 @@
                 "prefill": 600
             },
             "proxyMappings": {
-                "title": "Proxy Mappings",
+                "title": "Proxy mappings",
                 "type": "array",
                 "description": "Map external paths to local web servers. Example: [{\"path\": \"/myapp\", \"target\": \"http://127.0.0.1:3000/myapp\"}]",
                 "editor": "json",
@@ -72,12 +72,12 @@
                     "type": "object",
                     "properties": {
                         "path": {
-                            "title": "Exposed Path",
+                            "title": "Exposed path",
                             "type": "string",
                             "description": "External URL path (e.g., /openclaw)"
                         },
                         "target": {
-                            "title": "Local Service URL",
+                            "title": "Local service URL",
                             "type": "string",
                             "description": "Full URL of local service (e.g., http://127.0.0.1:18789/openclaw)"
                         }
