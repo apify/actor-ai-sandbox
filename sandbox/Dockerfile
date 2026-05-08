@@ -30,6 +30,9 @@ RUN npm install
 # Compile TypeScript to JavaScript
 RUN npm run build
 
+# Run unit tests (fail the build if the security contract regresses)
+RUN npm test
+
 # Stage 2: Runtime - Node.js image
 FROM node:24-trixie-slim
 
