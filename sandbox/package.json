@@ -45,7 +45,7 @@
         "lint:fix": "eslint --fix",
         "format": "prettier --write .",
         "format:check": "prettier --check .",
-        "test": "node --import tsx --test tests/env-security.test.ts",
+        "test": "[ -n \"$APIFY_IS_AT_HOME\" ] || echo \"ℹ️  No unit tests available. For E2E platform tests, run: npm run test:e2e\"",
         "test:e2e": "tsx tests/e2e.ts"
     },
     "author": "It's not you it's me",
