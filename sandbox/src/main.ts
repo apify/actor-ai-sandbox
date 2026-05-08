@@ -136,6 +136,14 @@ if (input?.initShellScript && input.initShellScript.trim().length > 0) {
     log.debug('No init script provided or init script is empty');
 }
 
+// Drop user-supplied envVars after the init script. They were exposed only
+// to the install/init bash script; downstream code execution and the shell
+// must not see them.
+for (const key of Object.keys(userEnvVars)) {
+    delete userEnvVars[key];
+}
+setUserEnvVars({});
+
 // Setup shell environment files
 if (!isLocalMode) {
     try {
@@ -858,7 +866,7 @@ const spawnTtyd = () => {
     const ttyd = spawn('ttyd', ['-p', shellPort.toString(), '-a', '-W', 'bash', '--rcfile', '/app/sandbox_bashrc'], {
         stdio: 'ignore',
         cwd: SANDBOX_DIR,
-        env: { ...process.env, ...userEnvVars },
+        env: { ...process.env },
     });
 
     ttyd.on('error', (err) => {

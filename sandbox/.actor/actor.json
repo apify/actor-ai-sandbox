@@ -51,7 +51,7 @@
             "envVars": {
                 "title": "Environment Variables",
                 "type": "string",
-                "description": "Secret environment variables exposed to the sandbox shell, init script, and code execution. Encrypted at rest by Apify and decrypted only at runtime.\n\nAccepts either format:\n- **KEY=VALUE per line** (dotenv-style):\n  ```\n  OPENAI_API_KEY=sk-...\n  MY_VAR=hello\n  ```\n- **JSON object**:\n  ```\n  {\"OPENAI_API_KEY\": \"sk-...\", \"MY_VAR\": \"hello\"}\n  ```",
+                "description": "Secret environment variables exposed **only to the initialization bash script**. Encrypted at rest by Apify and decrypted only at runtime.\n\n**Security model:** these values are never placed into the main Actor process's environment. They are injected into the init script's environment, then deleted from the container before the sandbox shell, MCP server, or code execution starts. Use them to bootstrap the sandbox (e.g. `git clone` a private repo, fetch a private package), not as a runtime secret store for executed code.\n\nAccepts either format:\n- **KEY=VALUE per line** (dotenv-style):\n  ```\n  GITHUB_TOKEN=ghp_...\n  MY_VAR=hello\n  ```\n- **JSON object**:\n  ```\n  {\"GITHUB_TOKEN\": \"ghp_...\", \"MY_VAR\": \"hello\"}\n  ```",
                 "editor": "textarea",
                 "isSecret": true
             },
