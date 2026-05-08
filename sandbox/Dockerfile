@@ -30,6 +30,13 @@ RUN npm install
 # Compile TypeScript to JavaScript
 RUN npm run build
 
+# Run unit tests (fast, no platform dependency). E2E tests are run separately
+# via `npm run test:e2e` since they require a deployed Apify run.
+# Skip if APIFY_IS_AT_HOME is set — defence-in-depth against accidentally
+# running tests during an Actor run (Dockerfile RUN is build-time only, so
+# this is belt-and-braces).
+RUN [ -n "$APIFY_IS_AT_HOME" ] || npm run test:unit
+
 # Stage 2: Runtime - Node.js image
 FROM node:24-trixie-slim
 

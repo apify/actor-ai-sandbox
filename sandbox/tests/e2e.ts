@@ -345,6 +345,51 @@ async function testEndpointWithOutputValidation(
     }
 }
 
+/**
+ * Run a /exec command and assert that the secret value does NOT appear in the
+ * output. Used to verify envVars are stripped from the runtime execution
+ * context after the init script. The command should print the env var wrapped
+ * in markers (e.g. `<<value>>`) so we can distinguish leak from absent value.
+ */
+async function testEndpointWithLeakAssertion(
+    baseUrl: string,
+    body: unknown,
+    forbiddenValue: string,
+    testName: string,
+): Promise<void> {
+    try {
+        const url = `${baseUrl}/exec`;
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+
+        const data = (await response.json()) as { stdout?: string; stderr?: string };
+
+        if (response.status !== 200) {
+            const errorMsg = `Expected status 200, got ${response.status}`;
+            console.log(`${colors.red}✗${colors.reset} ${testName}: ${errorMsg}`);
+            results.push({ name: testName, passed: false, error: errorMsg });
+            return;
+        }
+
+        const combined = `${data.stdout ?? ''}\n${data.stderr ?? ''}`;
+        if (combined.includes(forbiddenValue)) {
+            const errorMsg = `Forbidden value "${forbiddenValue}" leaked into output: "${combined.trim()}"`;
+            console.log(`${colors.red}✗${colors.reset} ${testName}: ${errorMsg}`);
+            results.push({ name: testName, passed: false, error: errorMsg });
+        } else {
+            console.log(`${colors.green}✓${colors.reset} ${testName}`);
+            results.push({ name: testName, passed: true });
+        }
+    } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.log(`${colors.red}✗${colors.reset} ${testName}: ${errorMsg}`);
+        results.push({ name: testName, passed: false, error: errorMsg });
+    }
+}
+
 async function testFsEndpoint(
     baseUrl: string,
     method: string,
@@ -427,6 +472,54 @@ async function runAllTests(baseUrl: string): Promise<void> {
         console.log(`${colors.red}✗${colors.reset} Init script - Verify file content: ${errorMsg}`);
         results.push({ name: 'Init script - Verify file content', passed: false, error: errorMsg });
     }
+
+    // ========================================================================
+    // envVars Lifecycle: visible to init script, deleted from runtime context
+    // ========================================================================
+
+    // Init script must have seen TEST_E2E_SECRET — proves envVars are exposed
+    // to the install/init phase as documented.
+    try {
+        const url = `${baseUrl}/fs/test-e2e-init/init-saw-secret.txt`;
+        const response = await fetch(url);
+        const content = (await response.text()).trim();
+
+        if (response.status === 200 && content === 'hunter2-do-not-leak') {
+            console.log(`${colors.green}✓${colors.reset} envVars - Init script received TEST_E2E_SECRET`);
+            results.push({ name: 'envVars - Init script received TEST_E2E_SECRET', passed: true });
+        } else {
+            const errorMsg = `Expected init script to write "hunter2-do-not-leak", got: "${content}" (status ${response.status})`;
+            console.log(`${colors.red}✗${colors.reset} envVars - Init script received TEST_E2E_SECRET: ${errorMsg}`);
+            results.push({ name: 'envVars - Init script received TEST_E2E_SECRET', passed: false, error: errorMsg });
+        }
+    } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.log(`${colors.red}✗${colors.reset} envVars - Init script received TEST_E2E_SECRET: ${errorMsg}`);
+        results.push({ name: 'envVars - Init script received TEST_E2E_SECRET', passed: false, error: errorMsg });
+    }
+
+    // Shell /exec must NOT see the secret. We print a marker before/after so
+    // we can distinguish "empty value" from "command failed". A leaked value
+    // would appear between the markers.
+    await testEndpointWithLeakAssertion(
+        baseUrl,
+        // eslint-disable-next-line no-template-curly-in-string -- shell interpolation, not JS
+        { command: 'printf "<<%s>>" "${TEST_E2E_SECRET}"' },
+        'hunter2-do-not-leak',
+        'envVars - Shell /exec does not see TEST_E2E_SECRET',
+    );
+
+    // Node /exec must NOT see the secret either (different code path: node
+    // child_process inherits process.env from the server).
+    await testEndpointWithLeakAssertion(
+        baseUrl,
+        {
+            command: 'console.log("<<" + (process.env.TEST_E2E_SECRET ?? "") + ">>")',
+            language: 'js',
+        },
+        'hunter2-do-not-leak',
+        'envVars - Node /exec does not see TEST_E2E_SECRET',
+    );
 
     // Execute command - success
     await testEndpoint(
@@ -844,8 +937,16 @@ async function main(): Promise<void> {
                 zod: '^3.22.0',
             },
             pythonRequirementsTxt: 'numpy>=1.24.0',
-            initShellScript:
-                "#!/bin/bash\nmkdir -p /sandbox/test-e2e-init\necho 'E2E test init script executed' > /sandbox/test-e2e-init/status.txt",
+            envVars: 'TEST_E2E_SECRET=hunter2-do-not-leak',
+            initShellScript: [
+                '#!/bin/bash',
+                'mkdir -p /sandbox/test-e2e-init',
+                "echo 'E2E test init script executed' > /sandbox/test-e2e-init/status.txt",
+                // Capture whether the secret was visible to the init script. We write
+                // the value (not just a flag) so the e2e suite can confirm it matched.
+                // eslint-disable-next-line no-template-curly-in-string -- shell interpolation, not JS
+                'echo "${TEST_E2E_SECRET:-<unset>}" > /sandbox/test-e2e-init/init-saw-secret.txt',
+            ].join('\n'),
         };
 
         console.log(
